@@ -29,6 +29,7 @@
 """
     
 import pydarn,numpy,math,matplotlib,calendar,datetime,utils,pylab
+import logging
 import matplotlib.pyplot as plot
 import matplotlib.lines as lines
 from matplotlib.ticker import MultipleLocator
@@ -229,8 +230,8 @@ def plotFan(myScan,rad,param='velocity',filtered=False ,\
             #pydarn.plotting.overlayRadar(myMap, ids = ids,codes=r, dateTime=cTime)
             #this was missing fovObj! We need to plot the fov for this particular sTime.
             pydarn.plotting.overlayFov(myMap, codes=r,fovColor=backgColor, lineColor=gridColor, dateTime=cTime, fovObj=fovs[i]) 
-    
-    print dt.datetime.now()-t1
+    logging.info('Time plotting Geo Figure')
+    logging.info(dt.datetime.now()-t1)
     #manually draw the legend
     if((not fill) and legend):
         #draw the box

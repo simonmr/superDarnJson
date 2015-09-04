@@ -34,6 +34,7 @@
 
 
 import pydarn,numpy,math,matplotlib,calendar,datetime,utils,pylab
+import logging
 import matplotlib.pyplot as plot
 import matplotlib.lines as lines
 from matplotlib.backends.backend_agg import FigureCanvasAgg
@@ -129,7 +130,7 @@ def plotRti(myBeamList,rad,bmnum=7,
 
 
   if not myBeamList:
-    print 'error, no data available for the requested time/radar/filetype combination'
+    logging.debug('error, no data available for the requested time/radar/filetype combination')
     return None
 
   #initialize empty lists
@@ -179,7 +180,7 @@ def plotRti(myBeamList,rad,bmnum=7,
     #Check to ensure that data exists for the requested frequency band else
     #continue on to the next range of frequencies
     if not freq[fplot]:
-      print 'error, no data in frequency range '+str(tbands[fplot][0])+' kHz to '+str(tbands[fplot][1])+' kHz'
+      logging.debug('error, no data in frequency range '+str(tbands[fplot][0])+' kHz to '+str(tbands[fplot][1])+' kHz')
       rtiFig=None	#Need this line in case no data is plotted
       continue
 
@@ -324,8 +325,8 @@ def plotRti(myBeamList,rad,bmnum=7,
   
 
     #rtiFig.show()
-      
-    print 'plotting took:',datetime.datetime.now()-t1
+    logging.info('Time plotting Time Figure')
+    logging.debug(datetime.datetime.now()-t1)
     #end of plotting for loop
     
     return rtiFig
@@ -497,8 +498,7 @@ def plotCpid(myFig,times,cpid,mode,pos=[.1,.77,.76,.05]):
       if(mode == 0): istr = ' RF'
       
       ax.text(times[i],.5,' '+str(oldCpid)+s+istr,ha='left',va='center', size=10)
-      
-  print 'Dates:',matplotlib.dates.date2num(times[0])
+  
   xmin,xmax = matplotlib.dates.date2num(times[0]),matplotlib.dates.date2num(times[len(times)-1])
   xrng = (xmax-xmin)
   inter = int(round(xrng/6.*86400.))

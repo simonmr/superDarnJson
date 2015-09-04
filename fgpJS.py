@@ -36,6 +36,7 @@
 import pydarn,numpy,math,matplotlib,calendar,datetime,utils,pylab
 import matplotlib.pyplot as plot
 import matplotlib.lines as lines
+import logging
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 from matplotlib.ticker import MultipleLocator
 from matplotlib.collections import PolyCollection
@@ -127,7 +128,7 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
 
 
   if not myScan:
-    print 'error, no data available for the requested time/radar/filetype combination'
+    logging.debug('error, no data available for the requested time/radar/filetype combination')
     return None
 
   #initialize empty lists
@@ -178,7 +179,7 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
     #Check to ensure that data exists for the requested frequency band else
     #continue on to the next range of frequencies
     if not freq[fplot]:
-      print 'error, no data in frequency range '+str(tbands[fplot][0])+' kHz to '+str(tbands[fplot][1])+' kHz'
+      logging.debug('error, no data in frequency range '+str(tbands[fplot][0])+' kHz to '+str(tbands[fplot][1])+' kHz')
       rtiFig=None	#Need this line in case no data is plotted
       continue
 
@@ -255,13 +256,13 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
       if(params[p] == 'width'): cb.set_label('Spec Wid [m/s]',size=10)
       if(params[p] == 'elevation'): cb.set_label('Elev [deg]',size=10)
       if(params[p] == 'phi0'): cb.set_label('Phi0 [rad]',size=10)
-    
-    print 'plotting took:',datetime.datetime.now()-t1
+    logging.info('Time plotting Fan Figure')
+    logging.info(datetime.datetime.now()-t1)
     xmin = 0.1
     xmax = 0.96
     rtiFig.text(xmin,.95,title,ha='left',weight=550)
     rtiFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
-    rtiFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{:.2f}".format(noise)
+    rtiFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
 		  ,weight=550,ha='right')
     return rtiFig
   
