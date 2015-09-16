@@ -1,5 +1,5 @@
 class RadarPos:
-	def __init__(self,st_id):
+	def __init__(self,st_id = None, code = None):
 		self.geolat=0
 		self.geolon=0
 		self.recrise=0
@@ -7,7 +7,76 @@ class RadarPos:
 		self.boresite=0
 		self.alt = 300
 		self.code = ''
-	
+		self.rsep = 45
+		if code is not None:
+			if code == 'gbr': # goose bay
+				st_id = 1
+			elif code == 'kap': # kapuskasing
+				st_id = 3
+			elif code == 'hal': # halley bay
+				st_id = 4
+			elif code == 'sas': # saskatoon
+				st_id = 5
+			elif code == 'pgr': # British Columbia
+				st_id = 6
+			elif code == 'kod': # kodiak
+				st_id = 7
+			elif code == 'sto': # stokkseyri
+				st_id = 8
+			elif code == 'pyk': # pykkvibaer
+				st_id = 9
+			elif code == 'han': # Hankasalmi finland
+				st_id = 10
+			elif code == 'san': # sanae
+				st_id = 11
+			elif code == 'sys': # syowa
+				st_id = 12
+			elif code == 'sye': # syowa
+				st_id = 13
+			elif code == 'tig': # tiger
+				st_id = 14
+			elif code == 'ker': # Kerguelen
+				st_id = 15
+			elif code == 'ksr': # King Salmon
+				st_id = 16
+			elif code == 'unw': # tiger NZ (Unwin)
+				st_id = 18
+			elif code == 'zho': # Zho...?
+				st_id = 19
+			elif code == 'mcm': # McMurdo
+				st_id = 20
+			elif code == 'fir': # Falkland Islands
+				st_id = 21
+			elif code == 'sps': # South Pole
+				st_id = 22
+			elif code == 'wal': # Wallops Island
+				st_id = 32
+			elif code == 'bks': # BlackStone
+				st_id = 33
+			elif code == 'hok': # Hokkaido
+				st_id = 40
+			elif code == 'inv': # Inuvik
+				st_id = 64
+			elif code == 'rkn': # Rankin Inlet
+				st_id = 65
+			elif code == 'svb': # Svalbard
+				st_id = 128
+			elif code == 'fhw': # FH West
+				st_id = 204
+			elif code == 'fhe': # FH East
+				st_id = 205
+			elif code == 'cvw': # CV West
+				st_id = 206
+			elif code == 'cve': # CV East
+				st_id = 207
+			elif code == 'adw': # Adak West
+				st_id = 208
+			elif code == 'ade': # Adak East
+				st_id = 209
+			elif code == 'azw': #Christmas Valley West
+				st_id = 210
+			elif code == 'aze': #Christmas Valley East
+				st_id = 211
 		if st_id == 1: # goose bay
 			self.geolat=+53.32
 			self.geolon=-60.46

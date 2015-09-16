@@ -4,11 +4,10 @@ from twisted.internet import reactor, protocol
 from twisted.internet.protocol import ReconnectingClientFactory
 import json
 import os, errno
-
 from rtiJS import plotRti
 from geoJS import plotFan
 from fgpJS import plotFgpJson
-
+import matplotlib.pyplot as plot
 import sys 
 sys.path.append('~/davitpy')
 import datetime,pytz
@@ -24,74 +23,77 @@ clears figure, calls graphing method, saves figure
 '''
 def processData(self):
 	logging.info('Updating Geographic Plot')
+	if self.parent.myBeam.prm.noisesearch is None:
+		self.parent.myBeam.prm.noisesearch = 0
 	for i in range(len(self.parent.geo['figure'])):
 		try:
-			t1 = datetime.datetime.now()
 			self.parent.geo['figure'][i].clf()
-			logging.info('Time clearing Geo figure')
-			logging.info(datetime.datetime.now()-t1)
-
 			self.parent.geo['figure'][i] =plotFan(self.parent.myScan,[self.parent.rad],
+				fovs = self.parent.fovs,
 				param=self.parent.geo['param'][i],
 				gsct=self.parent.geo['gsct'], 
 				maxbeams = int(self.parent.maxbeam[0]),
 				maxgates=int(self.parent.nrangs[0]),	
 				scale=self.parent.geo['sc'][i],
 				drawEdge = self.parent.geo['drawEdge'], 
-				gridColor = self.parent.geo['gridColor'],
-				backgColor = self.parent.geo['backgColor'],
-				continentColor = self.parent.geo['continentColor'],
-				continentBorder = self.parent.geo['continentBorder'],
-				waterColor = self.parent.geo['waterColor'],
-				merColor = self.parent.geo['merColor'],
-				merGrid = self.parent.geo['merGrid'],
-				figure = self.parent.geo['figure'][i],
+				myFig = self.parent.geo['figure'][i],
 				bmnum = self.parent.myBeam.bmnum,
+				site = self.parent.site,
 				tfreq = self.parent.myBeam.prm.tfreq,
 				noise = self.parent.myBeam.prm.noisesearch,
 				rTime=self.parent.myBeam.time,
-				title = self.parent.names[0])
-			t1 = datetime.datetime.now()
-			self.parent.geo['figure'][i].savefig(self.parent.filepath[0]+'geo_'+self.parent.geo['param'][i])
-			logging.info('Time saving Geo figure')
-			logging.info(datetime.datetime.now()-t1)
+				title = self.parent.names[0],
+				dist = self.parent.dist,
+				llcrnrlon = self.parent.llcrnrlon,
+				llcrnrlat = self.parent.llcrnrlat,
+				urcrnrlon = self.parent.urcrnrlon,
+				urcrnrlat = self.parent.urcrnrlat,
+				lon_0 = self.parent.lon_0,
+				lat_0 = self.parent.lat_0,
+				merGrid = self.parent.geo['merGrid'],
+				merColor = self.parent.geo['merColor'],
+				continentBorder = self.parent.geo['continentBorder'],
+				waterColor = self.parent.geo['waterColor'],
+				continentColor = self.parent.geo['continentColor'],
+				backgColor = self.parent.geo['backgColor'],
+				gridColor = self.parent.geo['gridColor'])
+			self.parent.geo['figure'][i].savefig("%sgeo_%s" % (self.parent.filepath[0],self.parent.geo['param'][i]))
 		except:
-			logging.debug("Error in Geo Plot:",sys.exc_info()[0].__str__())
+			print 'Geo Figure ',sys.exc_info()[0]
 	logging.info('Updating Fan Plot')
 	for i in range(len(self.parent.fan['figure'])):
 		try:
 			self.parent.fan['figure'][i].clf()
 			self.parent.fan['figure'][i]=plotFgpJson(self.parent.myScan,self.parent.rad,
 				params=[self.parent.fan['param'][i]],
-				gsct=self.parent.fan['gsct'],scales=[self.parent.fan['sc'][i]],
-				bmnum = self.parent.myBeam.bmnum,figure = self.parent.fan['figure'][i],
+				gsct=self.parent.fan['gsct'],
+				scales=[self.parent.fan['sc'][i]],
+				bmnum = self.parent.myBeam.bmnum,
+				figure = self.parent.fan['figure'][i],
 				tfreq = self.parent.myBeam.prm.tfreq,
 				noise = self.parent.myBeam.prm.noisesearch,
 				rTime=self.parent.myBeam.time,
 				title = self.parent.names[0])
-			t1 = datetime.datetime.now()
-			self.parent.fan['figure'][i].savefig(self.parent.filepath[0]+'fan_'+self.parent.fan['param'][i])
-			logging.info('Time saving Fan figure')
-			logging.info(datetime.datetime.now()-t1)
+			self.parent.fan['figure'][i].savefig("%sfan_%s" % (self.parent.filepath[0],self.parent.fan['param'][i]))
 		except:
-			logging.debug("Error in Fan Plot:",sys.exc_info()[0].__str__())
+			print 'Fan Figure ',sys.exc_info()[0]
 	#Must wait till the beam list is long enough to work
 	if len(self.parent.myBeamList)>2:
 		try:
 			self.parent.time['figure'].clf()
 			logging.info('Updating Time Plot')
-			self.parent.time['figure']=plotRti(self.parent.myBeamList,self.parent.rad,
-				params=self.parent.time['param'],scales=self.parent.time['sc'],
-				gsct=self.parent.time['gsct'],bmnum = int(self.parent.beams[0]),
-				figure = self.parent.time['figure'],rTime = self.parent.myBeam.time,
+			self.parent.time['figure']=plotRti(self.parent.myBeamList,
+				self.parent.rad,
+				params=self.parent.time['param'],
+				scales=self.parent.time['sc'],
+				gsct=self.parent.time['gsct'],
+				bmnum = int(self.parent.beams[0]),
+				figure = self.parent.time['figure'],
+				rTime = self.parent.myBeam.time,
 				title = self.parent.names[0])
-			t1= datetime.datetime.now()
-			self.parent.time['figure'].savefig(self.parent.filepath[0]+'time')
-			logging.info('Time saving Time figure')
-			logging.info(datetime.datetime.now()-t1)
+			self.parent.time['figure'].savefig("%stime" % (self.parent.filepath[0]))
 		except:
-			logging.debug("Error in Time Plot:",sys.exc_info()[0].__str__())
-		
+			print 'Time Figure ',sys.exc_info()[0]			
 class EchoClient(protocol.Protocol):
 	#initializes variables in the connection
     def connectionMade(self):
@@ -100,6 +102,7 @@ class EchoClient(protocol.Protocol):
     	parent.i = 1
     	self.incom = False
     	self.parent = parent
+    	self.first = True
     	self.endP = True
     	logging.info('Connection Open')
         self.transport.registerProducer(self.transport, streaming=True)
@@ -136,7 +139,7 @@ class EchoClient(protocol.Protocol):
 				#inserts removes and inserts new beam data
 				self.parent.myScan.pop(parent.myBeam.bmnum)
 				self.parent.myScan.insert(parent.myBeam.bmnum,parent.myBeam)
-				logging.info('Proccessing packet: '+str(parent.i))
+				logging.info("Proccessing packet: %s" % (str(parent.i)))
 				self.parent.i = self.parent.i+1
 				self.endP = True
 				
@@ -167,7 +170,7 @@ class EchoClient(protocol.Protocol):
 					try:
 						processMsg(self)
 					except:
-						logging.debug("Error:",sys.exc_info()[0].__str__())
+						print '1:',sys.exc_info()[0]
 					self.data = ''
 					self.incom = False
 				elif indF != -1:
@@ -175,7 +178,7 @@ class EchoClient(protocol.Protocol):
 					try:
 						processMsg(self)
 					except:
-						logging.debug("Error:",sys.exc_info()[0].__str__())
+						print '2:',sys.exc_info()[0]
 					self.data = ''
 					data = data[indF+3:]
 					self.incom = False
@@ -202,7 +205,7 @@ class EchoClient(protocol.Protocol):
 					try:
 						processMsg(self)
 					except:
-						logging.debug("Error:",exc_info()[0].__str__())
+						print '3:',sys.exc_info()[0]
 					self.data = ''
 					indS = data.find('["{')
 					indF = data.find('}"]')
@@ -212,7 +215,7 @@ class EchoClient(protocol.Protocol):
 						try:
 							processMsg(self)
 						except:
-							logging.debug("Error:",sys.exc_info()[0].__str__())
+							print '4:',sys.exc_info()[0]
 						self.data = ''
 						data = data[indF+3:]
 						self.incom = False
@@ -247,9 +250,10 @@ class EchoFactory(protocol.ReconnectingClientFactory):
 		createData(self)
 		parent.myScan = self.myScan
 		for pr in parent.fan['param']:
-			silentRemove('fan_'+pr+'.png')
-			silentRemove('geo_'+pr+'.png')
+			silentRemove("fan_%s.png" % (pr))
+			silentRemove("geo_%s.png" % (pr))
 		silentRemove('time.png')
+		self.first = True
 		ReconnectingClientFactory.clientConnectionFailed(self, connector,
                                                          reason)
     
@@ -259,19 +263,19 @@ class EchoFactory(protocol.ReconnectingClientFactory):
 		createData(self)
 		parent.myScan = self.myScan
 		for pr in parent.fan['param']:
-			silentRemove('fan_'+pr+'.png')
-			silentRemove('geo_'+pr+'.png')
+			silentRemove("fan_%s.png" % (pr))
+			silentRemove("geo_%s.png" % (pr))
 		silentRemove('time.png')
-		ReconnectingClientFactory.clientConnectionLost(self, connector,
-                                                         reason)
+		self.first = True
+		ReconnectingClientFactory.clientConnectionLost(self, connector,reason)
 
 #connects server
 def serverCon(self):
 	global parent
 	parent = self
 	t_date = datetime.date.today()
-	logging.basicConfig(filename='errlog/err_'+self.rad+\
-		'_'+t_date.strftime('%Y%m%d'), level=logging.DEBUG, \
+	logging.basicConfig(filename="errlog/err_%s_%s"\
+		% (self.rad,t_date.strftime('%Y%m%d')), level=logging.DEBUG, \
 		format='%(asctime)s %(message)s')
 	f = EchoFactory()
 	reactor.connectTCP(self.hosts[0], int(self.ports[0]), f)
@@ -290,7 +294,7 @@ def silentRemove(filename):
 		fanFig.clf()
 		fanFig.text(0.5,0.5,'Lost Connection',backgroundcolor='r',
 			size='x-large',style='oblique',ha='center',va='center')
-		fanFig.savefig(parent.filepath[0]+filename)
+		fanFig.savefig("%s%s" % (parent.filepath[0],filename))
 
 #creates a new data set
 def createData(self):

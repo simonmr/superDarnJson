@@ -43,6 +43,7 @@ from matplotlib.collections import PolyCollection
 from utils.timeUtils import *
 from pydarn.sdio import *
 from matplotlib.figure import Figure
+from radarPos import RadarPos
 
 
 def plotRti(myBeamList,rad,bmnum=7, 
@@ -158,6 +159,7 @@ def plotRti(myBeamList,rad,bmnum=7,
   #read the parameters of interest
   for myBeam in myBeamList:
 	if myBeam.prm.tfreq >= tbands[i][0] and myBeam.prm.tfreq <= tbands[i][1]:
+	  ids = myBeam.stid
 	  times[i].append(myBeam.time)
 	  cpid[i].append(myBeam.cp)
 	  nave[i].append(myBeam.prm.nave)
@@ -212,7 +214,7 @@ def plotRti(myBeamList,rad,bmnum=7,
       pos = [.1,figtop-figheight*(p+1)+.02,.76,figheight-.02]
       
       #draw the axis
-      ax = drawAxes(rtiFig,times[fplot],rad,cpid[fplot],bmnum,nrang[fplot],frang[fplot],rsep[fplot],p==len(params)-1,yrng=yrng,coords=coords,\
+      ax = drawAxes(rtiFig,times[fplot],rad,cpid[fplot],bmnum,nrang[fplot],frang[fplot],rsep[fplot],ids,p==len(params)-1,yrng=yrng,coords=coords,\
                     pos=pos,xtick_size=xtick_size,ytick_size=ytick_size,xticks=xticks,axvlines=axvlines)
   
       
@@ -246,7 +248,7 @@ def plotRti(myBeamList,rad,bmnum=7,
               data[tcnt][slist[fplot][i][j]] = -100000.
   
       if (coords != 'gate' and coords != 'rng') or plotTerminator == True:
-        site    = pydarn.radar.network().getRadarByCode(rad).getSiteByDate(times[fplot][0])
+        site    = RadarPos(ids)
         myFov   = pydarn.radar.radFov.fov(site=site,ngates=rmax,nbeams=site.maxbeam,rsep=rsep[fplot][0],coords=coords)
         myLat   = myFov.latCenter[bmnum]
         myLon   = myFov.lonCenter[bmnum]
@@ -331,7 +333,7 @@ def plotRti(myBeamList,rad,bmnum=7,
     
     return rtiFig
   
-def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,yrng=-1,\
+def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,ids,yrng=-1,\
 	coords='gate',pos=[.1,.05,.76,.72],xtick_size=9,\
 	ytick_size=9,xticks=None,axvlines=None):
   """draws empty axes for an rti plot
@@ -384,7 +386,7 @@ def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,yrng=-1,\
         if(cpid[i] == oldCpid): continue
         oldCpid = cpid[i]
         if(coords == 'geo' or coords == 'mag'):
-          site = pydarn.radar.network().getRadarByCode(rad).getSiteByDate(times[i])
+          site = RadarPos(ids)
           myFov = pydarn.radar.radFov.fov(site=site, ngates=nrang[i],nbeams=site.maxbeam,rsep=rsep[i],coords=coords)
           if(myFov.latFull[bmnum].max() > ymax): ymax = myFov.latFull[bmnum].max()
           if(myFov.latFull[bmnum].min() < ymin): ymin = myFov.latFull[bmnum].min()

@@ -41,17 +41,19 @@ from pydarn.sdio.radDataRead import *
 from matplotlib.figure import Figure
 import matplotlib.cm as cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg
-from radarPos import RadarPos
+
 
 def plotFan(myScan,rad,param='velocity',filtered=False ,\
-        scale=[],channel='a',coords='geo',gridColor='k',backgColor='w',\
-        drawEdge=False,colors='lasse',gsct=False,fov=True,edgeColors='face',\
+        scale=[],channel='a',coords='geo',
+        colors='lasse',gsct=False,fovs=None,edgeColors='face',\
         lowGray=False,fill=True,velscl=1000.,legend=True,overlayPoes=False,\
         poesparam='ted',poesMin=-3.,poesMax=0.5, maxbeams = 16, maxgates = 75, \
         poesLabel=r"Total Log Energy Flux [ergs cm$^{-2}$ s$^{-1}$]",overlayBnd=False, \
-        waterColor='#cce5ff',continentBorder='.75',continentColor='w',merColor='.75',\
-	merGrid=True,png=False,pdf=False,dpi=500,tFreqBands=[],figure=None,bmnum = None,
-	tfreq = None, noise = None,rTime = None, title = None):
+		tFreqBands=[],myFig=None,bmnum = None,site = None,drawEdge = False,
+		tfreq = None, noise = None,rTime = None, title = None,dist = None,
+		llcrnrlon=None,llcrnrlat=None,urcrnrlon=None,urcrnrlat=None,lon_0=None,lat_0=None,
+		merGrid = True,merColor = '0.75',continentBorder = '0.75',
+		waterColor = '#cce5ff',continentColor = 'w',backgColor='w',gridColor='k'):
 
     """A function to make a fan plot
     
@@ -134,139 +136,31 @@ def plotFan(myScan,rad,param='velocity',filtered=False ,\
     myBands = []
     for i in range(len(rad)):
     	myBands.append(tbands[i])
-
-    xmin,ymin,xmax,ymax = 1e16,1e16,-1e16,-1e16
-
-    sites,fovs,oldCpids,lonFull,latFull=[],[],[],[],[]
-    lonC,latC = [],[]
-
-    #go through all open beams
-    for myBeam in myScan:
-    	t = datetime.datetime.utcnow()
-        site = RadarPos(myBeam.stid)
-        ids = myBeam.stid
-        sites.append(site)
-        site.tval = t
-        if(coords == 'geo'):           #make a list of site lats and lons
-            latFull.append(site.geolat)
-            lonFull.append(site.geolon)
-            latC.append(site.geolat)     #latC and lonC are used for figuring out
-            lonC.append(site.geolon)     #where the map should be centered.
-        elif(coords == 'mag'):
-            x = aacgm.aacgmConv(site.geolat,site.geolon,0.,t.year,0)
-            latFull.append(x[0])
-            lonFull.append(x[1])
-            latC.append(x[0])
-            lonC.append(x[1])
-        
-        myFov = pydarn.radar.radFov.fov(site=site,rsep=myBeam.prm.rsep,\
-                        nbeams=maxbeams,ngates= maxgates,coords=coords)
-        fovs.append(myFov)
-        for b in range(0,maxbeams+1):
-            for k in range(0,myBeam.prm.nrang+1):
-                lonFull.append(myFov.lonFull[b][k])
-                latFull.append(myFov.latFull[b][k])
-        oldCpids.append(myBeam.cp)
-        
-        k=myBeam.prm.nrang
-        b=0
-        latC.append(myFov.latFull[b][k])
-        lonC.append(myFov.lonFull[b][k])
-        b=maxbeams
-        latC.append(myFov.latFull[b][k])
-        lonC.append(myFov.lonFull[b][k])
-
-    #Now that we have 3 points from the FOVs of the radars, calculate the lat,lon pair
-    #to center the map on. We can simply do this by converting from Spherical coords
-    #to Cartesian, taking the mean of each coordinate and then converting back
-    #to get lat_0 and lon_0
-    lonC,latC = (numpy.array(lonC)+360.)%360.0,numpy.array(latC)
-    xs=numpy.cos(numpy.deg2rad(latC))*numpy.cos(numpy.deg2rad(lonC))
-    ys=numpy.cos(numpy.deg2rad(latC))*numpy.sin(numpy.deg2rad(lonC))
-    zs=numpy.sin(numpy.deg2rad(latC))
-    xc=numpy.mean(xs)
-    yc=numpy.mean(ys)
-    zc=numpy.mean(zs)
-    lon_0=numpy.rad2deg(numpy.arctan2(yc,xc))
-    lat_0=numpy.rad2deg(numpy.arctan2(zc,numpy.sqrt(xc*xc+yc*yc)))
-
-    #Now do some stuff in map projection coords to get necessary width and height of map
-    #and also figure out the corners of the map
-    t1=dt.datetime.now()
-    lonFull,latFull = (numpy.array(lonFull)+360.)%360.0,numpy.array(latFull)
-    tmpmap = utils.mapObj(coords=coords,projection='stere', width=10.0**3, 
-                                                height=10.0**3, lat_0=lat_0, lon_0=lon_0)
-    x,y = tmpmap(lonFull,latFull)
-    minx = x.min()*1.05     #since we don't want the map to cut off labels or
-    miny = y.min()*1.05     #FOVs of the radars we should alter the extrema a bit.
-    maxx = x.max()*1.05
-    maxy = y.max()*1.05
-    width = (maxx-minx)
-    height = (maxy-miny)
-    llcrnrlon,llcrnrlat = tmpmap(minx,miny,inverse=True)
-    urcrnrlon,urcrnrlat = tmpmap(maxx,maxy,inverse=True)
-
-    dist = width/50.
-    cTime = datetime.datetime.utcnow()
-
-    #get/create a figure
-    if figure == None:
-         myFig = plot.figure(figsize=(12,8))
-    else:
-        myFig = figure
-
     
-    #draw the actual map we want
-    myMap = utils.mapObj(coords=coords, projection='stere', lat_0=lat_0, lon_0=lon_0,
-                                             llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat, urcrnrlon=urcrnrlon,
-                                             urcrnrlat=urcrnrlat,grid =merGrid,
-                                             lineColor=merColor)
-    myMap.drawcoastlines(linewidth=0.5,color=continentBorder)
-    myMap.drawmapboundary(fill_color=waterColor)
-    myMap.fillcontinents(color=continentColor, lake_color=waterColor)
-    #overlay fields of view, if desired
-    if(fov == 1):
-        for i,r in enumerate(rad):
-            #pydarn.plotting.overlayRadar(myMap, ids = ids,codes=r, dateTime=cTime)
-            #this was missing fovObj! We need to plot the fov for this particular sTime.
-            pydarn.plotting.overlayFov(myMap, codes=r,fovColor=backgColor, lineColor=gridColor, dateTime=cTime, fovObj=fovs[i]) 
-    logging.info('Time plotting Geo Figure')
-    logging.info(dt.datetime.now()-t1)
-    #manually draw the legend
-    if((not fill) and legend):
-        #draw the box
-        y = [myMap.urcrnry*.82,myMap.urcrnry*.99]
-        x = [myMap.urcrnrx*.86,myMap.urcrnrx*.99]
-        verts = [x[0],y[0]],[x[0],y[1]],[x[1],y[1]],[x[1],y[0]]
-        poly = patches.Polygon(verts,fc='w',ec='k',zorder=11)
-        myFig.gca().add_patch(poly)
-        labs = ['5 dB','15 dB','25 dB','35 dB','gs','1000 m/s']
-        pts = [5,15,25,35]
-        #plot the icons and labels
-        for w in range(6):
-            myFig.gca().text(x[0]+.35*(x[1]-x[0]),y[1]*(.98-w*.025),labs[w],zorder=15,color='k',size=8,va='center')
-            xctr = x[0]+.175*(x[1]-x[0])
-            if(w < 4):
-                myFig.scatter(xctr,y[1]*(.98-w*.025),s=.1*pts[w],zorder=15,marker='o',linewidths=.5,\
-                edgecolor='face',facecolor='k')
-            elif(w == 4):
-                myFig.scatter(xctr,y[1]*(.98-w*.025),s=.1*35.,zorder=15,marker='o',\
-                linewidths=.5,edgecolor='k',facecolor='w')
-            elif(w == 5):
-                y=LineCollection(numpy.array([((xctr-dist/2.,y[1]*(.98-w*.025)),(xctr+dist/2.,y[1]*(.98-w*.025)))]),linewidths=.5,zorder=15,color='k')
-                myFig.gca().add_collection(y)
-                
-    bbox = myFig.gca().get_axes().get_position()
+	myMap = utils.mapObj(coords='geo', projection='stere', lat_0=lat_0, lon_0=lon_0,
+										 llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat, urcrnrlon=urcrnrlon,
+										 urcrnrlat=urcrnrlat,grid =merGrid,
+										 lineColor=merColor)
+	myMap.drawcoastlines(linewidth=0.5,color=continentBorder)
+	myMap.drawmapboundary(fill_color=waterColor)
+	myMap.fillcontinents(color=continentColor, lake_color=waterColor)
     #now, loop through desired time interval
-
     tz = dt.datetime.now()
     cols = []
-    
     ft = 'None'
     #go though all files
     pcoll = None
-    intensities, pcoll = overlayFan(myScan,myMap,myFig,param,coords,gsct=gsct,site=sites[i],fov=fovs[i], fill=fill,velscl=velscl,dist=dist,cmap=cmap,norm=norm)                                                                 
-    #if no data has been found pcoll will not have been set, and the following code will object                                   
+    drawEdge = False
+    gridColor ='k'
+    backgColor = 'w'
+    waterColor = '#cce5ff'
+    continentBorder = '0.75'
+    continentColor = 'w'
+    merColor = '0.75'
+    cTime = datetime.datetime.utcnow()
+    pydarn.plotting.overlayFov(myMap,site = site,fovColor=backgColor, lineColor=gridColor, dateTime=cTime, fovObj=fovs[0]) 
+    intensities, pcoll = overlayFan(myScan,myMap,myFig,param,coords,gsct=gsct,site=site,fov=fovs[0], fill=fill,velscl=velscl,dist=dist,cmap=cmap,norm=norm)
+	#if no data has been found pcoll will not have been set, and the following code will object                                   
     if pcoll: 
         cbar = myFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1,drawedges=drawEdge)
         l = []
@@ -315,7 +209,7 @@ def plotFan(myScan,rad,param='velocity',filtered=False ,\
         
     xmin = 0.1
     xmax = 0.86
-    #r=pydarn.radar.network().getRadarByCode(rad)
+
     myFig.text(xmin,.95,title,ha='left',weight=550)
     myFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
     myFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
@@ -365,7 +259,7 @@ def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
     gs_flg,lines = [],[]
     if fill: verts,intensities = [],[]
     else: verts,intensities = [[],[]],[[],[]]
-    
+ 
     #loop through gates with scatter
     for myBeam in myData:
     	if myBeam.fit.slist is not None:

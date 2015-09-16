@@ -1,13 +1,13 @@
 from connection import serverCon,disconnect
 from pydarn.sdio import beamData, scanData
 import matplotlib.pyplot as plot
-
+from radarPos import RadarPos
 import os, errno
 import sys 
 sys.path.append('~/davitpy')
 import datetime
 import pytz
-
+import utils
 import numpy as np
 
 import pydarn
@@ -23,7 +23,6 @@ class parseStart:
 	
 	def __init__(self,*args,**kwargs):
 		parseArgs(self)
-		createData(self)
 		self.i = 0
 		self.rad = self.rad[0]
 		self.fan = None
@@ -67,7 +66,7 @@ class parseStart:
 		self.data['merGrid'] = True
 		self.data['figure'] = 3*[plot.figure(figsize=(12,8))]
 		self.geo = self.data
-
+		createData(self)
 		serverCon(self)
 		
 '''
@@ -129,11 +128,16 @@ def createData(self):
 		if i == 0:
 			self.myBeam = myBeam
 		self.myScan.append(myBeam)
+	self.site = RadarPos(code = self.rad)
+	self.site.tval = datetime.datetime.utcnow()
+	self.llcrnrlon,self.llcrnrlat,self.urcrnrlon,self.urcrnrlat,self.lon_0,self.lat_0, self.fovs,self.dist = utils.plotUtils.geoLoc(self.site,
+		int(self.nrangs[0]),self.site.rsep,
+		int(self.maxbeam[0]))
 
 #remove previously written figures
 def silentRemove(figPath,filename):
     try:
-        os.remove(figPath+filename)
+        os.remove("%s%s" % (figPath,filename))
     except OSError as e: # this would be "except OSError, e:" before Python 2.6
         if e.errno != errno.ENOENT: # errno.ENOENT = no such file or directory
             raise # re-raise exception if a different error occured
