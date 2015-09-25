@@ -28,7 +28,6 @@ class parseStart:
 		self.fan = None
 		self.geo = None
 		self.status = None
-		
 		#fan data
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']

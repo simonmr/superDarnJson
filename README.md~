@@ -17,6 +17,6 @@ filepath - path to where you would like the saved images to be stored
 
 
 Files that need to be copied to the davitpy library located in the python section of your machine
---plotUtils.py --davitpy/pydarn/plotting/
---radDataTypes --davitpy/pydarn/sdio/
---mapOverlay   --davitpy/utils/
+--plotUtils.py --pydarn/plotting/
+--radDataTypes --pydarn/sdio/
+--mapOverlay   --pydarn/sdio/

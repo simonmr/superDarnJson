@@ -256,8 +256,6 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
       if(params[p] == 'width'): cb.set_label('Spec Wid [m/s]',size=10)
       if(params[p] == 'elevation'): cb.set_label('Elev [deg]',size=10)
       if(params[p] == 'phi0'): cb.set_label('Phi0 [rad]',size=10)
-    logging.info('Time plotting Fan Figure')
-    logging.info(datetime.datetime.now()-t1)
     xmin = 0.1
     xmax = 0.96
     rtiFig.text(xmin,.95,title,ha='left',weight=550)

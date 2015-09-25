@@ -324,11 +324,6 @@ def plotRti(myBeamList,rad,bmnum=7,
       if(params[p] == 'width'): cb.set_label('Spec Wid [m/s]',size=10)
       if(params[p] == 'elevation'): cb.set_label('Elev [deg]',size=10)
       if(params[p] == 'phi0'): cb.set_label('Phi0 [rad]',size=10)
-  
-
-    #rtiFig.show()
-    logging.info('Time plotting Time Figure')
-    logging.debug(datetime.datetime.now()-t1)
     #end of plotting for loop
     
     return rtiFig

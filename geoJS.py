@@ -98,7 +98,6 @@ def plotFan(myScan,rad,param='velocity',filtered=False ,\
     from matplotlib.backends.backend_pdf import PdfPages
     import models.aacgm as aacgm, os, copy
     tt = dt.datetime.now()
-    
     #check the inputs
     assert(isinstance(rad,list)),"error, rad must be a list, eg ['bks'] or ['bks','fhe']"
     for r in rad:
@@ -214,6 +213,7 @@ def plotFan(myScan,rad,param='velocity',filtered=False ,\
     myFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
     myFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
 		  ,weight=550,ha='right')
+	#self.parent.geo['figure'][i].savefig("%sgeo_%s" % (self.parent.filepath[0],self.parent.geo['param'][i]))
     #handle the outputs
     return myFig
 def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
