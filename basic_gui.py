@@ -32,7 +32,7 @@ class parseStart:
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']
 		self.data['sc'] = [[-1000,1000],[0,30],[0,500]]
-		self.data['gsct'] = True
+		self.data['gsct'] = False
 		self.data['drawEdge'] = False
 		self.data['gridColor']='k'
 		self.data['backgColor'] = 'w'
@@ -44,7 +44,7 @@ class parseStart:
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']
 		self.data['sc'] = [[-1000,1000],[0,30],[0,500]]
-		self.data['gsct'] = True
+		self.data['gsct'] = False
 		self.data['drawEdge'] = False
 		self.data['figure'] = plot.figure(figsize=(12,8))
 		self.time = self.data
@@ -54,7 +54,7 @@ class parseStart:
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']
 		self.data['sc'] = [[-1000,1000],[0,30],[0,500]]
-		self.data['gsct'] = True
+		self.data['gsct'] = False
 		self.data['drawEdge'] = False
 		self.data['gridColor']='k'
 		self.data['backgColor'] = 'w'

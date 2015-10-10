@@ -24,7 +24,7 @@ clears figure, calls graphing method, saves figure
 '''
 
 def processData(self):
-	logging.info('Updating Geographic Plot')
+	logging.info('Starting Plot Updates')
 	if self.parent.myBeam.prm.noisesearch is None:
 		self.parent.myBeam.prm.noisesearch = 0
 	for i in range(len(self.parent.geo['figure'])):
@@ -65,8 +65,9 @@ def processData(self):
 			logging.error('geographic plot missing info')
 			print 'Geo Figure ',sys.exc_info()[0]
 			break
+	logging.info('Updated Geographic Plot')
 	if self.no_err:
-		logging.info('Updating Fan Plot')
+		
 		for i in range(len(self.parent.fan['figure'])):
 			try:
 				self.parent.fan['figure'][i].clf()
@@ -84,11 +85,13 @@ def processData(self):
 			except:
 				logging.error('fan plot missing info')
 				print 'Fan Figure ',sys.exc_info()[0]
+		logging.info('Updated Fan Plot')
+		
 		#Must wait till the beam list is long enough to work
 		if len(self.parent.myBeamList)>2:
 			try:
 				self.parent.time['figure'].clf()
-				logging.info('Updating Time Plot')
+				
 				self.parent.time['figure']=plotRti(self.parent.myBeamList,
 					self.parent.rad,
 					params=self.parent.time['param'],
@@ -102,12 +105,14 @@ def processData(self):
 			except:
 				logging.error('time plot missing info')
 				print 'Time Figure ',sys.exc_info()[0]
+			logging.info('Updated Time Plot')
+		
 				
 				
 
 def processMsg(self):
 	self.no_err = True
-	#print 'Msg:', self.data
+	logging.info('Msg: %s' % str(self.data))
 	#json loads the data
 	msg = json.loads(self.data)
 	dic = json.loads(msg.pop())
@@ -116,8 +121,9 @@ def processMsg(self):
 		self.parent.myBeam = beamData()
 		self.parent.myBeam.updateValsFromDict(dic)
 		self.parent.myBeam.prm.updateValsFromDict(dic)
+		
 		if self.parent.myBeam.prm.rsep != self.parent.site.rsep:
-			logging.info('Difference in rsep',str(self.parent.site.rsep),' : ',str(self.parent.myBeam.prm.rsep))
+			logging.info('Difference in rsep: %s' % str(self.parent.site.rsep),' : ',str(self.parent.myBeam.prm.rsep))
 			self.parent.site.rsep = self.parent.myBeam.prm.rsep
 			createData(self)
 			
@@ -134,7 +140,7 @@ def processMsg(self):
 		time = self.parent.myBeam.time
 		self.parent.myBeam.time = datetime.datetime(time['yr'],time['mo'],\
 			time['dy'],time['hr'],time['mt'],time['sc'])
-		
+		logging.info("Proccessing Beam: %s Time: %s" % (str(self.parent.myBeam.bmnum),str(self.parent.myBeam.time)))
 		#inserts removes and inserts new beam data
 		self.parent.myScan.pop(self.parent.myBeam.bmnum)
 		self.parent.myScan.insert(self.parent.myBeam.bmnum,self.parent.myBeam)
@@ -149,52 +155,108 @@ def processMsg(self):
 				
 def incommingData(self,data):						
 	#As soon as any data is received, write it back.
-	indS = data.find('["{')
-	indF = data.find('}"]')
-	if indS != -1 and indF != -1:
-		self.data = data[indS:indF+3]
-		data = data[indF+3:]
-		#print 'In 1'
-		self.comp = True
-	elif indF != -1:
-		self.data = self.data + data[:indF+3]
-		data = data[indF+3:]
-		#print 'In 2'
-		self.comp = True
-	elif indS != -1:
-		self.data = data[indS:]
-	else:
-		self.data = self.data + data
-		#print 'In else'
-	if self.comp:
-		#print 'Full data: ',self.data
-		try:
-			processMsg(self)
-		except:
-			print 'Incomming Data ',sys.exc_info()[0]
-			print 'Data ',self.data
-			self.errorCount = self.errorCount + 1
-			logging.error('Error in Data: '+str(self.errorCount))
-		indS = data.find('["{')
-		if indS != -1:
-			self.data = data[indS:]
+	#print 'Self.data: ',self.data
+	logging.info('Start self.Data: %s' % str(self.data))
+	start_count = self.data.count('["{')
+	if start_count != 0:
+		start_count -= 1
+	logging.info('Start Count: %s' % str(start_count))
+	i = 0
+	logging.info('Data: %s' % str(data))
+	while i <= start_count:
+		logging.info('Looping self.Data: %s' % str(self.data))
+		indS = self.data.find('["{')
+		indF = self.data.find('}"]')
+		#print "Self data has data"
+		#print "indS: ",indS," indF: ",indF
+		self.parseS = True
+		if indS == -1 or indF == -1:
+			if indS != -1:
+				self.parseP = True
+				#logging.info("Self data complete data")
+				indF = data.find('}"]')
+			else:
+				#logging.info("Self data doesn't have data")
+				indS = data.find('["{')
+				indF = data.find('}"]')
+	
+			#print "indS: ",indS," indF: ",indF
+			self.parseS = False
+		if indF < indS:
+			indF = -1;
+		logging.info("indS: %s indF: %s" % (str(indS),str(indF)))
+		#logging.info("parseS: %s parseP: %s" % (str(self.parseS),str(self.parseP)))
+		if indS != -1 and indF != -1:
+			if self.parseS:
+				if i == start_count:
+					self.data2 = self.data[indF+3:]+data
+				else:
+					self.data2 = self.data[indF+3:]
+				self.data = self.data[indS:indF+3]
+			elif self.parseP:
+				self.data = self.data[indS:] + data[:indF+3]
+				data = data[indF+3:]
+				self.parseP = False
+			else:
+				self.data = data[indS:indF+3]
+				data = data[indF+3:]
+			#logging.info('In 1')
+			self.comp = True
+		elif indF != -1:
+			self.data = self.data + data[:indF+3]
+			data = data[indF+3:]
+			#logging.info('In 2')
+			self.comp = True
+		elif indS != -1:
+			if self.parseP:
+				self.data = self.data + data
+				self.parseP = False
+			else:
+				self.data = data[indS:]
 		else:
-			self.data = data
-		self.comp = False
-
-	if self.endP:
-		processData(self)
+			self.data = self.data + data
+			#logging.info('In else')
+		if self.comp:
+			#print 'Process Msg Full data: ',self.data
+			try:
+				processMsg(self)
+			except:
+				logging.info('Incomming Data %s' % str(sys.exc_info()[0]))
+				logging.info('Data %s' % str(self.data))
+				self.errorCount = self.errorCount + 1
+				logging.error('Error in Data: '+str(self.errorCount))
+			if self.parseS:
+				data = self.data[indF+3:]+data
+				self.parseS = False
+				#print 'Data in if: ',data
+			indS = data.find('["{')
+			if indS != -1:
+				self.data = data[indS:]
+			else:
+				self.data = data
+			self.comp = False
+	
+		if self.endP:
+			#logging.info('Process Data Full data')
+			processData(self)
+		if self.data2 != None:
+			self.data = self.data2
+			self.data2 = None
+		i +=1
 		
 class EchoClient(protocol.Protocol):
     def connectionMade(self):
     	self.parent = self.factory.parent
     	logging.info('Connected')
     	self.data = ''
+    	self.data2 = None
     	self.parent.i = 1
     	self.errorCount = 0
     	self.comp = False
     	self.no_err = True
-    	self.endP = True
+    	self.endP = False
+    	self.parseP = False
+    	self.parseS = False
     	logging.info('Connection Open')
         self.transport.registerProducer(self.transport, streaming=True)
 
