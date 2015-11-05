@@ -260,6 +260,8 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
     xmax = 0.96
     rtiFig.text(xmin,.95,title,ha='left',weight=550)
     rtiFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
+    if noise is None:
+    	noise =0
     rtiFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
 		  ,weight=550,ha='right')
     return rtiFig

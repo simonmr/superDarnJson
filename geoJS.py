@@ -43,17 +43,17 @@ import matplotlib.cm as cm
 from matplotlib.backends.backend_agg import FigureCanvasAgg
 
 
-def plotFan(myScan,rad,param='velocity',filtered=False ,\
-        scale=[],channel='a',coords='geo',
+def plotFan(myScan,rad,params='velocity',filtered=False ,\
+        scales=[],channel='a',coords='geo',
         colors='lasse',gsct=False,fovs=None,edgeColors='face',\
         lowGray=False,fill=True,velscl=1000.,legend=True,overlayPoes=False,\
         poesparam='ted',poesMin=-3.,poesMax=0.5, maxbeams = 16, maxgates = 75, \
         poesLabel=r"Total Log Energy Flux [ergs cm$^{-2}$ s$^{-1}$]",overlayBnd=False, \
-		tFreqBands=[],myFig=None,bmnum = None,site = None,drawEdge = False,
+		tFreqBands=[],myFigs=None,bmnum = None,site = None,drawEdge = False,
 		tfreq = None, noise = None,rTime = None, title = None,dist = None,
 		llcrnrlon=None,llcrnrlat=None,urcrnrlon=None,urcrnrlat=None,lon_0=None,lat_0=None,
 		merGrid = True,merColor = '0.75',continentBorder = '0.75',
-		waterColor = '#cce5ff',continentColor = 'w',backgColor='w',gridColor='k'):
+		waterColor = '#cce5ff',continentColor = 'w',backgColor='w',gridColor='k',filepath = None):
 
     """A function to make a fan plot
     
@@ -103,119 +103,128 @@ def plotFan(myScan,rad,param='velocity',filtered=False ,\
     for r in rad:
         assert(isinstance(r,str) and len(r) == 3),'error, elements of rad list must be 3 letter strings'
     assert(coords == 'geo' or coords == 'mag'),"error, coords must be one of 'geo' or 'mag'"
-    assert(param == 'velocity' or param == 'power' or param == 'width' or \
-        param == 'elevation' or param == 'phi0'), \
-        "error, allowable params are 'velocity','power','width','elevation','phi0'"
-    assert(scale == [] or len(scale)==2), \
-    'error, if present, scales must have 2 elements'
+    #assert(param == 'velocity' or param == 'power' or param == 'width' or \
+    #   param == 'elevation' or param == 'phi0'), \
+    #    "error, allowable params are 'velocity','power','width','elevation','phi0'"
+    #assert(scale == [] or len(scale)==2), \
+    #'error, if present, scales must have 2 elements'
     assert(colors == 'lasse' or colors == 'aj'),"error, valid inputs for color are 'lasse' and 'aj'"
     
     #check freq band and set to default if needed
     assert(tFreqBands == [] or len(tFreqBands) == len(rad)),'error, if present, tFreqBands must have same number of elements as rad'
-    tbands = []
-    for i in range(len(rad)):
-        if tFreqBands == [] or tFreqBands[i] == []: tbands.append([8000,20000])
-        else: tbands.append(tFreqBands[i])
+    for i in range(len(myFigs)):
+		param = params[i]
+		scale = scales[i]
+		myFig = myFigs[i]
+		myFig.clf()
+		tbands = []
+		for i in range(len(rad)):
+			if tFreqBands == [] or tFreqBands[i] == []: tbands.append([8000,20000])
+			else: tbands.append(tFreqBands[i])
+		
+		for i in range(len(tbands)):
+			assert(tbands[i][1] > tbands[i][0]),'error, frequency upper bound must be > lower bound'
+		
+		if(scale == []):
+			if(param == 'velocity'): scale=[-200,200]
+			elif(param == 'power'): scale=[0,30]
+			elif(param == 'width'): scale=[0,150]
+			elif(param == 'elevation'): scale=[0,50]
+			elif(param == 'phi0'): scale=[-numpy.pi,numpy.pi]
+		
+			
+		fbase = datetime.datetime.utcnow().strftime("%Y%m%d")
+			
+		cmap,norm,bounds = utils.plotUtils.genCmap(param,scale,colors=colors,lowGray=lowGray)
+		
+		myBands = []
+		for i in range(len(rad)):
+			myBands.append(tbands[i])
+		
+		myMap = utils.mapObj(coords='geo', projection='stere', lat_0=lat_0, lon_0=lon_0,
+											 llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat, urcrnrlon=urcrnrlon,
+											 urcrnrlat=urcrnrlat,grid =merGrid,
+											 lineColor=merColor)
+		myMap.drawcoastlines(linewidth=0.5,color=continentBorder)
+		myMap.drawmapboundary(fill_color=waterColor)
+		myMap.fillcontinents(color=continentColor, lake_color=waterColor)
+		#now, loop through desired time interval
+		tz = dt.datetime.now()
+		cols = []
+		ft = 'None'
+		#go though all files
+		pcoll = None
+		drawEdge = False
+		gridColor ='k'
+		backgColor = 'w'
+		waterColor = '#cce5ff'
+		continentBorder = '0.75'
+		continentColor = 'w'
+		merColor = '0.75'
+		cTime = datetime.datetime.utcnow()
+		pydarn.plotting.overlayFov(myMap,site = site,fovColor=backgColor, lineColor=gridColor, dateTime=cTime, fovObj=fovs[0]) 
+		intensities, pcoll = overlayFan(myScan,myMap,myFig,param,coords,gsct=gsct,site=site,fov=fovs[0], fill=fill,velscl=velscl,dist=dist,cmap=cmap,norm=norm)
+		#if no data has been found pcoll will not have been set, and the following code will object                                   
+		if pcoll: 
+			cbar = myFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1,drawedges=drawEdge)
+			l = []
+			#define the colorbar labels
+			for i in range(0,len(bounds)):
+				if(param == 'phi0'):
+					ln = 4
+					if(bounds[i] == 0): ln = 3
+					elif(bounds[i] < 0): ln = 5
+					l.append(str(bounds[i])[:ln])
+					continue
+				if((i == 0 and param == 'velocity') or i == len(bounds)-1):
+					l.append(' ')
+					continue
+				l.append(str(int(bounds[i])))
+			cbar.ax.set_yticklabels(l)
+			cbar.ax.tick_params(axis='y',direction='out')
+			#set colorbar ticklabel size
+			for ti in cbar.ax.get_yticklabels():
+				ti.set_fontsize(12)
+			if(param == 'velocity'): 
+				cbar.set_label('Velocity [m/s]',size=14)
+				cbar.extend='max'
+				
+				
+			if(param == 'grid'): cbar.set_label('Velocity [m/s]',size=14)
+			if(param == 'power'): cbar.set_label('Power [dB]',size=14)
+			if(param == 'width'): cbar.set_label('Spec Wid [m/s]',size=14)
+			if(param == 'elevation'): cbar.set_label('Elev [deg]',size=14)
+			if(param == 'phi0'): cbar.set_label('Phi0 [rad]',size=14)
+		
+		if(overlayPoes):
+			pcols = gme.sat.poes.overlayPoesTed(myMap, myFig.gca(), cTime, param=poesparam, scMin=poesMin, scMax=poesMax)
+			if(pcols != None):
+				cols.append(pcols)
+				pTicks = numpy.linspace(poesMin,poesMax,8)
+				cbar = myFig.colorbar(pcols,ticks=pTicks,orientation='vertical',shrink=0.65,fraction=.1)
+				cbar.ax.set_yticklabels(pTicks)
+				cbar.set_label(poesLabel,size=14)
+				cbar.ax.tick_params(axis='y',direction='out')
+				#set colorbar ticklabel size
+				for ti in cbar.ax.get_yticklabels():
+					ti.set_fontsize(12)    
+		if(overlayBnd):
+			gme.sat.poes.overlayPoesBnd(myMap, myFig.gca(), cTime)
+			
+		xmin = 0.1
+		xmax = 0.86
+		
+		myFig.text(xmin,.95,title,ha='left',weight=550)
+		myFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
+		if noise is None:
+			noise =0
+		myFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
+			  ,weight=550,ha='right')
+		#self.parent.geo['figure'][i].savefig("%sgeo_%s" % (self.parent.filepath[0],self.parent.geo['param'][i]))
+		#handle the outputs
+		myFig.savefig("%sgeo_%s" % (filepath,param))
+    return myFigs
 
-    for i in range(len(tbands)):
-        assert(tbands[i][1] > tbands[i][0]),'error, frequency upper bound must be > lower bound'
-
-    if(scale == []):
-        if(param == 'velocity'): scale=[-200,200]
-        elif(param == 'power'): scale=[0,30]
-        elif(param == 'width'): scale=[0,150]
-        elif(param == 'elevation'): scale=[0,50]
-        elif(param == 'phi0'): scale=[-numpy.pi,numpy.pi]
-
-        
-    fbase = datetime.datetime.utcnow().strftime("%Y%m%d")
-        
-    cmap,norm,bounds = utils.plotUtils.genCmap(param,scale,colors=colors,lowGray=lowGray)
-
-    myBands = []
-    for i in range(len(rad)):
-    	myBands.append(tbands[i])
-    
-	myMap = utils.mapObj(coords='geo', projection='stere', lat_0=lat_0, lon_0=lon_0,
-										 llcrnrlon=llcrnrlon, llcrnrlat=llcrnrlat, urcrnrlon=urcrnrlon,
-										 urcrnrlat=urcrnrlat,grid =merGrid,
-										 lineColor=merColor)
-	myMap.drawcoastlines(linewidth=0.5,color=continentBorder)
-	myMap.drawmapboundary(fill_color=waterColor)
-	myMap.fillcontinents(color=continentColor, lake_color=waterColor)
-    #now, loop through desired time interval
-    tz = dt.datetime.now()
-    cols = []
-    ft = 'None'
-    #go though all files
-    pcoll = None
-    drawEdge = False
-    gridColor ='k'
-    backgColor = 'w'
-    waterColor = '#cce5ff'
-    continentBorder = '0.75'
-    continentColor = 'w'
-    merColor = '0.75'
-    cTime = datetime.datetime.utcnow()
-    pydarn.plotting.overlayFov(myMap,site = site,fovColor=backgColor, lineColor=gridColor, dateTime=cTime, fovObj=fovs[0]) 
-    intensities, pcoll = overlayFan(myScan,myMap,myFig,param,coords,gsct=gsct,site=site,fov=fovs[0], fill=fill,velscl=velscl,dist=dist,cmap=cmap,norm=norm)
-	#if no data has been found pcoll will not have been set, and the following code will object                                   
-    if pcoll: 
-        cbar = myFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1,drawedges=drawEdge)
-        l = []
-        #define the colorbar labels
-        for i in range(0,len(bounds)):
-            if(param == 'phi0'):
-                ln = 4
-                if(bounds[i] == 0): ln = 3
-                elif(bounds[i] < 0): ln = 5
-                l.append(str(bounds[i])[:ln])
-                continue
-            if((i == 0 and param == 'velocity') or i == len(bounds)-1):
-                l.append(' ')
-                continue
-            l.append(str(int(bounds[i])))
-        cbar.ax.set_yticklabels(l)
-        cbar.ax.tick_params(axis='y',direction='out')
-        #set colorbar ticklabel size
-        for ti in cbar.ax.get_yticklabels():
-            ti.set_fontsize(12)
-        if(param == 'velocity'): 
-            cbar.set_label('Velocity [m/s]',size=14)
-            cbar.extend='max'
-            
-            
-        if(param == 'grid'): cbar.set_label('Velocity [m/s]',size=14)
-        if(param == 'power'): cbar.set_label('Power [dB]',size=14)
-        if(param == 'width'): cbar.set_label('Spec Wid [m/s]',size=14)
-        if(param == 'elevation'): cbar.set_label('Elev [deg]',size=14)
-        if(param == 'phi0'): cbar.set_label('Phi0 [rad]',size=14)
-    
-    if(overlayPoes):
-        pcols = gme.sat.poes.overlayPoesTed(myMap, myFig.gca(), cTime, param=poesparam, scMin=poesMin, scMax=poesMax)
-        if(pcols != None):
-            cols.append(pcols)
-            pTicks = numpy.linspace(poesMin,poesMax,8)
-            cbar = myFig.colorbar(pcols,ticks=pTicks,orientation='vertical',shrink=0.65,fraction=.1)
-            cbar.ax.set_yticklabels(pTicks)
-            cbar.set_label(poesLabel,size=14)
-            cbar.ax.tick_params(axis='y',direction='out')
-            #set colorbar ticklabel size
-            for ti in cbar.ax.get_yticklabels():
-                ti.set_fontsize(12)    
-    if(overlayBnd):
-        gme.sat.poes.overlayPoesBnd(myMap, myFig.gca(), cTime)
-        
-    xmin = 0.1
-    xmax = 0.86
-
-    myFig.text(xmin,.95,title,ha='left',weight=550)
-    myFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
-    myFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
-		  ,weight=550,ha='right')
-	#self.parent.geo['figure'][i].savefig("%sgeo_%s" % (self.parent.filepath[0],self.parent.geo['param'][i]))
-    #handle the outputs
-    return myFig
 def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
                                 fov=None,gs_flg=[],fill=True,velscl=1000.,dist=1000.,
                                 cmap=None,norm=None,alpha=1):
