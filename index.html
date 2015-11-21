@@ -1,0 +1,128 @@
+<html>
+<link rel="shortcut icon" href="http://superdarn.gi.alaska.edu/favicon.ico" type="image/icon">
+<link rel="icon" href="http://superdarn.gi.alaska.edu/favicon.ico" type="image/icon">
+
+<head>
+<title>
+Real Time Java Display
+</title>
+<style>
+h1 {text-align:center; font:24px arial,sansserif; color:FFFFCC;}
+h0 {text-align:left; font:16px arial,sansserif; color:FFFFCC;}
+h2 {text-align:left; font:14px arial,sansserif; color:FFFFCC;}
+p {text-align:left; font:12px arial,sansserif; color:FFFFCC;}
+span { font:14px arial,sansserif;color:FFFFCC;};
+</style>
+<script type="text/javascript" >
+var newWindow = new Array;
+var k = 0;
+setTimeout(refreshIm, 5000)
+function refreshIm() {
+	for (var i = 0;i < newWindow.length; i++) {
+		if(!newWindow[i].closed){
+			newWindow[i].location.reload();
+		}
+	}
+	setTimeout(refreshIm, 5000);
+}
+function popUp() {
+	var i = 0;
+	var AKrad = document.getElementById("AlaskaRadar");
+	var graph = document.getElementsByName("graph");
+	var gType = document.getElementsByName("gType");
+	var rType = AKrad.options[AKrad.selectedIndex].value;
+	
+	var url = "";
+	for(i = 0; i < graph.length; i++){
+		if(graph[i].checked){
+			if(graph[i].value == "time"){
+				url = url+rType+"/"+graph[i].value+".png";
+			}
+			else{
+				url = url+rType+"/"+graph[i].value+"_";
+				for(i = 0; i < gType.length; i++){
+					if(gType[i].checked){
+						url = url+gType[i].value + ".png";
+					}
+				}
+			}
+		}	
+	}	
+   newWindow[k]=window.open(url,'htmlname'+ k + '','width=404,height=316,resizable=1');
+	k ++;   
+}
+</script>
+</head>
+
+<body bgcolor=#00336>
+<table width=720 cellpadding=0 cellspacing=0>
+	<tr>
+		<td width=239 height=85 rowspan=2><img src=Geophysical-Institute.gif><img src=Geophysical_Address.gif>
+		</td>
+	</tr>
+</table>
+<table width=720>
+<h3><img src=SuperDARN.gif></h3>
+<center>
+<h1> Real-Time RADAR Display </h1>
+<h2>The SuperDARN Display is a Java Applet that provides a real-time plot of the observations of Radars linked to the internet. The applet connects to the SuperDARN web server and displays images of the plots saved on that server as they are sent from the radars.</h2>
+
+<h2>It is important to remember that the applet is working with the actual data recorded by the Radars.</h2>
+<h2>To connect to the Radar please select from the drop down the radar with the name of the desired location.</h2>
+<h2>Then select the radio button for desired graph type and plot type when the submit button is pressed the image specified will be displayed.</h2>
+</center>
+<p>&nbsp</p>
+	<table columns=4 hspace="200">
+	<col width=300>
+	<col width=250>
+	<col width=250>
+	<col width=200>
+	<tr>
+		<th>
+			<h2>University of Alaska RADARS:</h2>
+		</th>
+		<th>
+			<select id="AlaskaRadar">
+			<option value="mcmb">McMurdo B</option>
+			</select>
+		</th>
+	</tr>
+	<tr>
+		<th></th>
+		<th>
+			<input type="radio" name="graph" value="fan"/><span>Beam vs. Gate Plot</span>
+		</th>
+		<th>
+			<input type="radio" name="graph" value="geo" checked/><span>Geographic Plot</span>
+		</th>
+		<th>
+			<input type="radio" name="graph" value="time"/><span>Time Plot</span>
+		</th>
+	</tr>
+	<tr>
+		<th><p>Plot Type (ignored if you are looking at the time plot):</p></th>
+		<th>
+			<input type="radio" name="gType" value="power"/><span>Power</span>
+		</th>
+		<th>
+			<input type="radio" name="gType" value="velocity" checked/><span>Velocity</span>
+		</th>
+		<th>
+			<input type="radio" name="gType" value="width"/><span>Spectral Width</span>
+		</th>
+	</tr>
+	<tr>
+		<th></th>
+		<th></th>
+		<th></th>
+		<th>
+		<br>
+			<button type="button" onclick="javascript:popUp()">Submit</button>
+		</th>
+	</tr>
+</table>
+<script type="text/javascript" >
+	window.onload = refreshIm();
+</script>
+</body>
+</html>
