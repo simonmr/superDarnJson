@@ -33,23 +33,19 @@
 """
 
 
-import pydarn,numpy,math,matplotlib,calendar,datetime,utils,pylab
-import matplotlib.pyplot as plot
-import matplotlib.lines as lines
+import numpy
+from utils.plotUtils import genCmap
 import logging
-from matplotlib.backends.backend_agg import FigureCanvasAgg
-from matplotlib.ticker import MultipleLocator
-from matplotlib.collections import PolyCollection
+from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from utils.timeUtils import *
 from pydarn.sdio import *
-from matplotlib.figure import Figure
-
+import matplotlib.pyplot as plt
 
 def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
               scales=[],channel='a',coords='gate',colors='lasse',yrng=-1,gsct=False,lowGray=False, \
               filtered=False, tFreqBands=[], myFile=None,figure=None,xtick_size=9,
               ytick_size=9,xticks=None,axvlines=None,plotTerminator=False,
-              tfreq = None, noise=None, rTime = None,title = None):
+              tfreq = None, noise=None, rTime = None,radN = None):
   """create an rti plot for a secified radar and time period
 
   **Args**:
@@ -86,9 +82,8 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
   Modified by Matt W. 20130715
   Modified by Nathaniel F. 20131031 (added plotTerminator)
   """
-  import os
     
-  t1 = datetime.datetime.now()
+
   #check the inputs
   assert(isinstance(rad,str) and len(rad) == 3),'error, rad must be a string 3 chars long'
   assert(coords == 'gate' or coords == 'rng' or coords == 'geo' or coords == 'mag'),\
@@ -164,6 +159,8 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
 	  nrang[i].append(myBeam.prm.nrang)
 	  frang[i].append(myBeam.prm.frang)
 	  nsch[i].append(myBeam.prm.noisesearch)
+	  if myBeam.prm.tfreq is None:
+	  	  myBeam.prm.tfreq = 0
 	  freq[i].append(myBeam.prm.tfreq/1e3)
 	  slist[i].append(myBeam.fit.slist)
 	  mode[i].append(myBeam.prm.ifmode)
@@ -184,10 +181,7 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
       continue
 
     #get/create a figure
-    if figure == None:
-         rtiFig = plot.figure(figsize=(11,8.5))
-    else:
-        rtiFig = figure
+    rtiFig = figure
   
     
     #plot each of the parameter panels
@@ -227,9 +221,9 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
       elif(coords == 'rng'): y = numpy.linspace(frang[fplot][0],rmax*rsep[fplot][0],rmax+1)
       else: y = myFov.latFull[bmnum] 
       X, Y = numpy.meshgrid(x[:tcnt], y)
-      cmap,norm,bounds = utils.plotUtils.genCmap(params[p],scales[p],colors=colors,lowGray=lowGray)
+      cmap,norm,bounds = genCmap(params[p],scales[p],colors=colors,lowGray=lowGray)
       pcoll = ax.pcolormesh(data[:][:].T, lw=0.01,edgecolors='w',alpha=1,lod=True,cmap=cmap,norm=norm)
-      cb = rtiFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1,drawedges=True)
+      cb = rtiFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1)
       l = []
       #define the colorbar labels
       for i in range(0,len(bounds)):
@@ -258,14 +252,12 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
       if(params[p] == 'phi0'): cb.set_label('Phi0 [rad]',size=10)
     xmin = 0.1
     xmax = 0.96
-    rtiFig.text(xmin,.95,title,ha='left',weight=550)
-    rtiFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
     if noise is None:
     	noise =0
-    rtiFig.text(xmax,.95,'Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)
-		  ,weight=550,ha='right')
+    rtiFig.text(xmin,.95,radN,ha='left',weight=400)
+    rtiFig.text((xmin+xmax)/2.,.95,str(rTime)+'; Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise),weight=100,ha='center')
     return rtiFig
-  
+
 def drawAxes(myFig,beam,rad,cpid,bmnum,nrang,frang,rsep,bottom,yrng=-1,\
 	coords='gate',pos=[.1,.1,.85,.85],xtick_size=9,\
 	ytick_size=9,xticks=None,axvlines=None):
@@ -332,32 +324,32 @@ def drawAxes(myFig,beam,rad,cpid,bmnum,nrang,frang,rsep,bottom,yrng=-1,\
   xMinor = MultipleLocator(2)
   xMajor = MultipleLocator(xmax+1)
   ax.xaxis.set_label_text('Beam Number',size=10)
-  ax.xaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%d'))
+  ax.xaxis.set_major_formatter(FormatStrFormatter('%d'))
   ax.xaxis.set_minor_locator(xMinor)
   ax.xaxis.set_major_locator(xMajor)
 
-  for tick in ax.xaxis.get_major_ticks():
-  	  tick.label.set_fontsize(xtick_size) 
+  #for tick in ax.xaxis.get_major_ticks():
+  	  #tick.label.set_fontsize(xtick_size) 
    
     
   #set ytick size
-  for tick in ax.yaxis.get_major_ticks():
-    tick.label.set_fontsize(ytick_size) 
+  #for tick in ax.yaxis.get_major_ticks():
+    #tick.label.set_fontsize(ytick_size) 
   #format y axis depending on coords
   if(coords == 'gate'): 
     ax.yaxis.set_label_text('Range gate',size=10)
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%d'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.yaxis.set_major_locator(MultipleLocator((ymax-ymin)/5.))
     ax.yaxis.set_minor_locator(MultipleLocator((ymax-ymin)/25.))
   elif(coords == 'geo' or coords == 'mag'): 
     if(coords == 'mag'): ax.yaxis.set_label_text('Mag Lat [deg]',size=10)
     else: ax.yaxis.set_label_text('Geo Lat [deg]',size=10)
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%0.2f'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%0.2f'))
     ax.yaxis.set_major_locator(MultipleLocator((ymax-ymin)/5.))
     ax.yaxis.set_minor_locator(MultipleLocator((ymax-ymin)/25.))
   elif(coords == 'rng'): 
     ax.yaxis.set_label_text('Slant Range [km]',size=10)
-    ax.yaxis.set_major_formatter(matplotlib.ticker.FormatStrFormatter('%d'))
+    ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.yaxis.set_major_locator(MultipleLocator(1000))
     ax.yaxis.set_minor_locator(MultipleLocator(250))
   

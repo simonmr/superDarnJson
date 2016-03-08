@@ -288,16 +288,16 @@ class RadarPos:
 			self.recrise=100.0
 			self.code = 'cve'
 		elif st_id == 208: # Adak West
-			self.geolat=+51.833
-			self.geolon=-176.617
+			self.geolat=+51.89
+			self.geolon=-176.63
 			self.boresite=-28.
 			self.bmsep=+3.24
 			self.recrise=100.0
 			self.code = 'adw'
 		elif st_id == 209: # Adak East
-			self.geolat=+51.833
-			self.geolon=-176.617
-			self.boresite=+46.
+			self.geolat=+51.89
+			self.geolon=-176.63
+			self.boresite=+46.0
 			self.bmsep=+3.24
 			self.recrise=100.0
 			self.code = 'ade'

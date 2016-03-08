@@ -93,7 +93,7 @@ def overlayRadar(Basemap, codes=None, ids=None, names=None, dateTime=None,
 		if not hasattr(Basemap, 'coords'): 
 			x,y = Basemap(site.geolon, site.geolat)
 		else:
-			x,y = Basemap(site.geolon, site.geolat, coords='geo')
+			x,y = Basemap(site.geolon, site.geolat,coords='geo')
 		if not Basemap.xmin <= x <= Basemap.xmax: continue
 		if not Basemap.ymin <= y <= Basemap.ymax: continue
 		# Plot radar position
@@ -122,7 +122,7 @@ def overlayFov(Basemap, codes=None, ids=None, names=None,
 				dateTime=None, all=False, 
 				maxGate=None, rangeLimits=None, model='IS', fovColor=None, fovAlpha=0.2, 
 				beams=None, beamsColors=None, hemi=None, fovObj=None, 
-				zorder=2, lineColor='k', lineWidth=1,site = None):
+				zorder=2, lineColor='k', lineWidth=1,site = None,radFov = None):
 	"""Overlay FoV position(s) on map
 	
 	**Args**: 
@@ -203,11 +203,11 @@ def overlayFov(Basemap, codes=None, ids=None, names=None,
 				site = RadarPos(ids)
 			if not site: continue			# Set number of gates to be plotted
 			eGate = site.maxgate-1 if not maxGate else maxGate
-
-			if not hasattr(Basemap, 'coords'): 
-				radFov = fov(site=site, ngates=eGate+1,model=model)
-			else:
-				radFov = fov(site=site, ngates=eGate+1, coords=Basemap.coords, model=model)
+			if fov is None:
+				if not hasattr(Basemap, 'coords'): 
+					radFov = fov(site=site, ngates=eGate+1,model=model)
+				else:
+					radFov = fov(site=site, ngates=eGate+1, coords=Basemap.coords, model=model)
 		else:
 			radFov = fovObj
 			eGate = len(fovObj.gates)
