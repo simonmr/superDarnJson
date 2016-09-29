@@ -1,11 +1,12 @@
-<html>
+<html lang="en-US">
 <link rel="shortcut icon" href="http://superdarn.gi.alaska.edu/favicon.ico" type="image/icon">
 <link rel="icon" href="http://superdarn.gi.alaska.edu/favicon.ico" type="image/icon">
 
-<head>
+
 <title>
 Real Time Java Display
 </title>
+<head>
 <style>
 h1 {text-align:center; font:24px arial,sansserif; color:FFFFCC;}
 h0 {text-align:left; font:16px arial,sansserif; color:FFFFCC;}
@@ -32,7 +33,7 @@ function popUp() {
 	var gType = document.getElementsByName("gType");
 	var rType = AKrad.options[AKrad.selectedIndex].value;
 	
-	var url = "gui/";
+	var url = "images/gui/";
 	for(i = 0; i < graph.length; i++){
 		if(graph[i].checked){
 			if(graph[i].value == "time"){
@@ -57,17 +58,17 @@ function popUp() {
 <body bgcolor=#00336>
 <table width=720 cellpadding=0 cellspacing=0>
 	<tr>
-		<td width=239 height=85 rowspan=2><img src=Geophysical-Institute.gif><img src=Geophysical_Address.gif>
+		<td width=239 height=85 rowspan=2><a href="http://www.gi.alaska.edu/"><img src=Geophysical-Institute.gif><img src=Geophysical_Address.gif>
 		</td>
 	</tr>
 </table>
 <table width=720>
-<h3><img src=SuperDARN.gif></h3>
+<h3><a href="http://superdarn.gi.alaska.edu/"><img src=SuperDARN.gif></a></h3>
 <center>
 <h1> Real-Time RADAR Display </h1>
-<h2>The SuperDARN Display is a Java Applet that provides a real-time plot of the observations of Radars linked to the internet. The applet connects to the SuperDARN web server and displays images of the plots saved on that server as they are sent from the radars.</h2>
+<h2>The SuperDARN Display is a Python program that provides a real-time plot of the observations of Radars linked to the internet. The applet connects to the SuperDARN web server and displays images of the plots saved on that server as they are sent from the radars.</h2>
 
-<h2>It is important to remember that the applet is working with the actual data recorded by the Radars.</h2>
+<h2>It is important to remember that the program is working with the actual data recorded by the Radars.</h2>
 <h2>To connect to the Radar please select from the drop down the radar with the name of the desired location.</h2>
 <h2>Then select the radio button for desired graph type and plot type when the submit button is pressed the image specified will be displayed.</h2>
 </center>
@@ -87,6 +88,7 @@ function popUp() {
 			<option value="mcmb">McMurdo B</option>
 			<option value="ade">Adak East</option>
 			<option value="adw">Adak West</option>
+			<option value="ksr">King Salmon(NICT)</option>
 			<option value="kodc">Kodiak C</option>
 			<option value="kodd">Kodiak D</option>
 			<option value="sps">South Pole</option>

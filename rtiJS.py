@@ -1,4 +1,4 @@
-# Copyright (C) 2012  VT SuperDARN Lab
+﻿# Copyright (C) 2012  VT SuperDARN Lab
 # Full license can be found in LICENSE.txt
 # 
 # This program is free software: you can redistribute it and/or modify
@@ -33,28 +33,28 @@
 """
 
 
-import numpy,logging,time
+import numpy,logging,time,datetime
 import matplotlib.lines as lines
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
 from matplotlib.dates import date2num, SecondLocator,num2date,DateFormatter
 from matplotlib.cm import *
-from utils.timeUtils import *
-from pydarn.sdio import *
-from pydarn.radar import radFov, radUtils
-from utils import plotUtils,drawCB
-from radarPos import RadarPos
+from davitpy.utils.timeUtils import *
+from davitpy.pydarn.sdio import *
+from davitpy.pydarn.radar import radFov, radUtils,network
+from davitpy.utils import plotUtils
 
 
-def plotRti(myBeamList,rad,bmnum=7, 
-			params=['velocity','power','width'], scales=[],
-			channel='a',coords='gate',colors='lasse',yrng=-1,
-			gsct=False,lowGray=False, filtered=False,tFreqBands=[],
-			figure=None,xtick_size=9,ytick_size=9,myFov = None,
-			xticks=None,axvlines=None,plotTerminator=False,rTime = None,title=None):
+
+
+def plotRti(myBeamList,rad,bmnum=7, params=['velocity','power','width'],\
+	scales=[], channel='a',coords='gate',colors='lasse',yrng=-1,\
+	gsct=False,lowGray=False, filtered=False,tFreqBands=[],\
+	figure=None,xtick_size=9,ytick_size=9,myFov = None,\
+	xticks=None,axvlines=None,rTime = None,title=None):
   """create an rti plot for a secified radar and time period
 
   **Args**:
-    * **Time** (`datetime <http://tinyurl.com/bl352yx>`_): a datetime object indicating the start time which you would like to plot
+  	* **myBeamList** List of beam information
     * **rad** (str): the 3 letter radar code, e.g. 'bks'
     * **[bmnum] (int)**: The beam to plot.  default: 7
     * **[params]** (list): a list of the fit parameters to plot, allowable values are: ['velocity', 'power', 'width', 'elevation', 'phi0'].  default: ['velocity', 'power', 'width']
@@ -70,22 +70,29 @@ def plotRti(myBeamList,rad,bmnum=7,
     * **[figure]** (matplotlib.figure) figure object to plot on.  If None, a figure object will be created for you.
     * **[xtick_size]**: (int) fontsize of xtick labels
     * **[ytick_size]**: (int) fontsize of ytick labels
+    * **[myFov]**: field of view parameters
     * **[xticks]**: (list) datetime.datetime objects indicating the location of xticks
     * **[axvlines]**: (list) datetime.datetime objects indicating the location vertical lines marking the plot
-    * **[plotTerminator]**: (boolean) Overlay the day/night terminator.
+    * **[rTime]**: (datetime) current datetime to go on the title of the graph
+    * **[title]**: (str) title string for figure
   **Returns**:
-    * Possibly figure, depending on the **retfig** keyword
+    * Return figure
 
   **Example**:
     ::
     
       import datetime as dt
-      pydarn.plotting.rti.plotRti(dt.datetime(2013,3,16), 'bks', eTime=dt.datetime(2013,3,16,14,30), bmnum=12, fileType='fitacf', scales=[[-500,500],[],[]], coords='geo',colors='aj', filtered=True, show=True)
+      import matplotlib.pyplot as plot
+      plotRti(myBeamList,'ade',params=['velocity','power','width'],
+			scales=[[-1000,1000],[0,30],[0,500]],gsct=True,
+			bmnum = 8,figure = plot.figure(),rTime = timeNow,
+			title = 'Adak East',myFov = fovs)
 
     
   Written by AJ 20121002
   Modified by Matt W. 20130715
   Modified by Nathaniel F. 20131031 (added plotTerminator)
+  Modified by Michelle S. 20160324 (updated for real time data plotting)
   """
     
   
@@ -152,40 +159,34 @@ def plotRti(myBeamList,rad,bmnum=7,
     elev.append([])
     phi0.append([])
     gsflg.append([])
-  
+  timeThen = datetime.datetime.utcnow() - datetime.timedelta(days=1)
   #read the parameters of interest
   for myBeam in myBeamList:
-	if myBeam.prm.tfreq >= tbands[i][0] and myBeam.prm.tfreq <= tbands[i][1]:
-	  ids = myBeam.stid
-	  times[i].append(myBeam.time)
-	  cpid[i].append(myBeam.cp)
-	  nave[i].append(myBeam.prm.nave)
-	  nsky[i].append(myBeam.prm.noisesky)
-	  rsep[i].append(myBeam.prm.rsep)
-	  nrang[i].append(myBeam.prm.nrang)
-	  frang[i].append(myBeam.prm.frang)
-	  nsch[i].append(myBeam.prm.noisesearch)
-	  freq[i].append(myBeam.prm.tfreq/1e3)
-	  slist[i].append(myBeam.fit.slist)
-	  mode[i].append(myBeam.prm.ifmode)
-	  if('velocity' in params): vel[i].append(myBeam.fit.v)
-	  if('power' in params): pow[i].append(myBeam.fit.p_l)
-	  if('width' in params): wid[i].append(myBeam.fit.w_l)
-	  if('elevation' in params): elev[i].append(myBeam.fit.elv)
-	  if('phi0' in params): phi0[i].append(myBeam.fit.phi0)
-	  gsflg[i].append(myBeam.fit.gflg)
-      
+    if myBeam.time > timeThen:
+      ids = myBeam.stid
+      times[i].append(myBeam.time)
+      cpid[i].append(myBeam.cp)
+      nave[i].append(myBeam.prm.nave)
+      nsky[i].append(myBeam.prm.noisesky)
+      rsep[i].append(myBeam.prm.rsep)
+      nrang[i].append(myBeam.prm.nrang)
+      frang[i].append(myBeam.prm.frang)
+      nsch[i].append(myBeam.prm.noisesearch)
+      freq[i].append(myBeam.prm.tfreq/1e3)
+      slist[i].append(myBeam.fit.slist)
+      mode[i].append(myBeam.prm.ifmode)
+      if('velocity' in params): vel[i].append(myBeam.fit.v)
+      if('power' in params): pow[i].append(myBeam.fit.p_l)
+      if('width' in params): wid[i].append(myBeam.fit.w_l)
+      if('elevation' in params): elev[i].append(myBeam.fit.elv)
+      if('phi0' in params): phi0[i].append(myBeam.fit.phi0)
+      gsflg[i].append(myBeam.fit.gflg)
+
+
   for fplot in range(len(tbands)):
-    #Check to ensure that data exists for the requested frequency band else
-    #continue on to the next range of frequencies
-    if not freq[fplot]:
-      logging.debug('error, no data in frequency range '+str(tbands[fplot][0])+' kHz to '+str(tbands[fplot][1])+' kHz')
-      rtiFig=None	#Need this line in case no data is plotted
-      continue
 
     #get/create a figure
     rtiFig = figure
-        
     #give the plot a title
     rtiTitle(rtiFig,rTime,title,rad,bmnum)
     #plot the noise bar
@@ -209,15 +210,17 @@ def plotRti(myBeamList,rad,bmnum=7,
       
       #draw the axis
       ax = drawAxes(rtiFig,times[fplot],rad,cpid[fplot],bmnum,nrang[fplot],frang[fplot],rsep[fplot],ids,p==len(params)-1,yrng=yrng,coords=coords,\
-                    pos=pos,xtick_size=xtick_size,ytick_size=ytick_size,xticks=xticks,axvlines=axvlines, myFov = myFov)
+                    pos=pos,xtick_size=xtick_size,ytick_size=ytick_size,xticks=xticks,axvlines=axvlines, myFov=myFov)
   
       
       if(pArr == []): continue
       
       rmax = max(nrang[fplot])
-      data=numpy.zeros((len(times[fplot])*2,rmax))+100000
-      if gsct: gsdata=numpy.zeros((len(times[fplot])*2,rmax))+100000
-      x=numpy.zeros(len(times[fplot])*2)
+      data=numpy.zeros((len(times[fplot])*2,rmax))-150000
+      
+      if gsct: 
+      	  gsdata=numpy.empty((len(times[fplot])*2,rmax))
+      x=numpy.empty(len(times[fplot])*2)
       tcnt = 0
 
       dt_list   = []
@@ -234,64 +237,34 @@ def plotRti(myBeamList,rad,bmnum=7,
             
         if(pArr[i] == []): continue
         
-        if slist[fplot][i] != None:
+        if slist[fplot][i] != None :
           for j in range(len(slist[fplot][i])):
-            if(not gsct or gsflg[fplot][i][j] == 0):
-              data[tcnt][slist[fplot][i][j]] = pArr[i][j]
+            if (not gsct or gsflg[fplot][i][j] == 0) or params[p] == 'power':
+              data[tcnt][int(slist[fplot][i][j])] = pArr[i][j]
             elif gsct and gsflg[fplot][i][j] == 1:
-              data[tcnt][slist[fplot][i][j]] = -100000.
-  
-      if (coords != 'gate' and coords != 'rng') or plotTerminator == True:
-      	if myFov is None:
-			site    = RadarPos(ids)
-			myFov   = radFov.fov(site=site,ngates=rmax,nbeams=site.maxbeam,rsep=rsep[fplot][0],coords=coords)
+              data[tcnt][int(slist[fplot][i][j])] = -100000.
+      tmpdata = numpy.ma.masked_where(data <= -150000, data)
+
+      if (coords != 'gate' and coords != 'rng'):
+        if myFov is None:
+          site    = RadarPos(ids)
+          myFov   = radFov.fov(site=site,ngates=rmax,nbeams=site.maxbeam,rsep=rsep[fplot][0],coords=coords)
         myLat   = myFov.latCenter[bmnum]
         myLon   = myFov.lonCenter[bmnum]
-          
+
       if(coords == 'gate'): y = numpy.linspace(0,rmax,rmax+1)
       elif(coords == 'rng'): y = numpy.linspace(frang[fplot][0],rmax*rsep[fplot][0],rmax+1)
       else: y = myFov.latFull[bmnum]
         
       X, Y = numpy.meshgrid(x[:tcnt], y)
-      # Calculate terminator. ########################################################
-      if plotTerminator:
-            def daynight_terminator(date, lons):
-                """
-                date is datetime object (assumed UTC).
-                """
-                import mpl_toolkits.basemap.solar as solar
-                dg2rad = np.pi/180.
-                # compute greenwich hour angle and solar declination
-                # from datetime object (assumed UTC).
-                tau, dec = solar.epem(date)
-                # compute day/night terminator from hour angle, declination.
-                longitude = lons + tau
-                lats = np.arctan(-np.cos(longitude*dg2rad)/np.tan(dec*dg2rad))/dg2rad
-                return lats,tau,dec
-
-            daylight = np.ones([len(dt_list),len(myLat)],np.bool)
-            for tm_inx in range(len(dt_list)):
-                tm                  = dt_list[tm_inx]
-                term_lats,tau,dec   = daynight_terminator(tm,myLon)
-
-                if dec > 0: # NH Summer
-                    day_inx = np.where(myLat < term_lats)[0]
-                else:
-                    day_inx = np.where(myLat > term_lats)[0]
-
-                if day_inx.size != 0:
-                    daylight[tm_inx,day_inx] = False
      
-            from numpy import ma
-            daylight = ma.array(daylight,mask=daylight)
-            ax.pcolormesh(X, Y, daylight.T, lw=0,alpha=0.10,cmap=matplotlib.cm.binary_r,zorder=99)
-      ################################################################################
-      
       cmap,norm,bounds = plotUtils.genCmap(params[p],scales[p],colors=colors,lowGray=lowGray)
-      
-      pcoll = ax.pcolormesh(X, Y, data[:tcnt][:].T, lw=0.01,edgecolors='None',alpha=1,lod=True,cmap=cmap,norm=norm)
-      cb = drawCB(rtiFig,pcoll,cmap,norm,map=0,pos=[pos[0]+pos[2]+.02, pos[1], 0.02, pos[3]])
-      
+      cmap.set_bad('w',1.0)
+      pcoll = ax.pcolormesh(X, Y, tmpdata[:tcnt][:].T, lw=0.01,edgecolors='None',alpha=1,cmap=cmap,norm=norm)
+      try:
+      	  cb = plotUtils.drawCB(rtiFig,pcoll,cmap,norm,map=0,pos=[pos[0]+pos[2]+.02, pos[1], 0.02, pos[3]])
+      except:
+      	  cb = rtiFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1)
       l = []
       #define the colorbar labels
       for i in range(0,len(bounds)):
@@ -301,7 +274,7 @@ def plotRti(myBeamList,rad,bmnum=7,
       #set colorbar ticklabel size
       for t in cb.ax.get_yticklabels():
         t.set_fontsize(9)
-      
+
       #set colorbar label
       if(params[p] == 'velocity'): cb.set_label('Velocity [m/s]',size=10)
       if(params[p] == 'grid'): cb.set_label('Velocity [m/s]',size=10)
@@ -310,7 +283,6 @@ def plotRti(myBeamList,rad,bmnum=7,
       if(params[p] == 'elevation'): cb.set_label('Elev [deg]',size=10)
       if(params[p] == 'phi0'): cb.set_label('Phi0 [rad]',size=10)
     #end of plotting for loop
-    
     return rtiFig
   
 def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,ids,yrng=-1,\
@@ -367,10 +339,9 @@ def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,ids,yrng=-1,\
         oldCpid = cpid[i]
         if(coords == 'geo' or coords == 'mag'):
           if myFov is None:
-			  site = RadarPos(ids)
-			  myFov = radFov.fov(site=site, ngates=nrang[i],nbeams=site.maxbeam,rsep=rsep[i],coords=coords)
-          if(myFov.latFull[bmnum].max() > ymax): ymax = myFov.latFull[bmnum].max()
-          if(myFov.latFull[bmnum].min() < ymin): ymin = myFov.latFull[bmnum].min()
+            site = RadarPos(ids)
+            myFov = radFov.fov(site=site, ngates=nrang[i],nbeams=site.maxbeam,rsep=rsep[i],coords=coords)
+
         else:
           ymin = 0
           if(nrang[i]*rsep[i]+frang[i] > ymax): ymax = nrang[i]*rsep[i]+frang[i]
@@ -379,7 +350,6 @@ def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,ids,yrng=-1,\
       ymin,ymax = 0,max(nrang)
   else:
     ymin,ymax = yrng[0],yrng[1]
-
   xmin,xmax = date2num(times[0]),date2num(times[len(times)-1])
   xrng = (xmax-xmin)
   inter = int(round(xrng/6.*86400.))
@@ -388,8 +358,6 @@ def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,ids,yrng=-1,\
   ax.xaxis.set_minor_locator(SecondLocator(interval=inter2))
   ax.xaxis.set_major_locator(SecondLocator(interval=inter))
 
-  
-  # ax.xaxis.xticks(size=9)
   if(not bottom):
     for tick in ax.xaxis.get_major_ticks():
       tick.label.set_fontsize(0) 
@@ -426,7 +394,7 @@ def drawAxes(myFig,times,rad,cpid,bmnum,nrang,frang,rsep,bottom,ids,yrng=-1,\
     ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))
     ax.yaxis.set_major_locator(MultipleLocator(1000))
     ax.yaxis.set_minor_locator(MultipleLocator(250))
-  
+  ax.set_xlim(left=xmin,right=xmax)
   ax.set_ylim(bottom=ymin,top=ymax)
 
   return ax
@@ -548,8 +516,7 @@ def plotNoise(myFig,times,sky,search,pos=[.1,.88,.76,.06],xlim=None,xticks=None)
   #plot the sky noise data
   ax.plot_date(date2num(times), numpy.log10(sky), fmt='k-', \
   tz=None, xdate=True, ydate=False)
-  #remove the x tick labels
-  #ax.set_xticklabels([' '])
+
   #use only 2 major yticks
   ax.set_yticks([0,6])
   ax.set_yticklabels([' ',' '])
@@ -617,14 +584,10 @@ def plotFreq(myFig,times,freq,nave,pos=[.1,.82,.76,.06],xlim=None,xticks=None):
   ax = myFig.add_axes(pos)
   ax.yaxis.tick_left()
   ax.yaxis.set_tick_params(direction='out')
-  #ax.set_ylim(bottom=10,top=16)
   ax.set_ylim(bottom=8,top=20)
   ax.yaxis.set_minor_locator(MultipleLocator())
   ax.yaxis.set_tick_params(direction='out',which='minor')
   
-  #for f in freq:
-    #if(f > 16): f = 16
-    #if(f < 10): f = 10
     
   ax.plot_date(date2num(times), freq, fmt='k-', \
   tz=None, xdate=True, ydate=False,markersize=2)
@@ -632,7 +595,6 @@ def plotFreq(myFig,times,freq,nave,pos=[.1,.82,.76,.06],xlim=None,xticks=None):
   if xlim != None: ax.set_xlim(xlim)
   if xticks != None: ax.set_xticks(xticks)
 
-  #ax.set_xticklabels([' '])
   #use only 2 major yticks
   ax.set_yticks([10,16])
   ax.set_yticklabels([' ',' '])

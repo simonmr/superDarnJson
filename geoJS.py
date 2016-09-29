@@ -28,34 +28,38 @@
     * :func:`pydarn.plotting.fan.overlayFan`
 """
     
-import numpy,math,datetime,time,gme,matplotlib
+import numpy,math,datetime,time,matplotlib,sys
+from davitpy import gme
+import datetime as dt
 from matplotlib.collections import PolyCollection,LineCollection
-from utils.timeUtils import *
-from utils.plotUtils import genCmap
-from utils import mapObj
-from pydarn.plotting import overlayFov
-from pydarn.radar import radFov
-from pydarn.sdio import beamData
-from pydarn.sdio.radDataRead import *
+from matplotlib import collections,patches
+from davitpy.utils.timeUtils import *
+from davitpy.utils.plotUtils import genCmap,mapObj,geoLoc
+from davitpy.pydarn.plotting import overlayFov, overlayRadar
+from davitpy.pydarn.radar import radFov
+from davitpy.pydarn.sdio import beamData
+from davitpy.pydarn.sdio.radDataRead import *
 import matplotlib.pyplot as plt
 
 
+
+
 def plotFan(myScan,rad,params='velocity',filtered=False ,\
-        scales=[],channel='a',coords='geo',
+        scales=[],channel='a',coords='geo',\
         colors='lasse',gsct=False,fovs=None,edgeColors='face',\
         lowGray=False,fill=True,velscl=1000.,legend=True,overlayPoes=False,\
         poesparam='ted',poesMin=-3.,poesMax=0.5, maxbeams = 16, maxgates = 75, \
         poesLabel=r"Total Log Energy Flux [ergs cm$^{-2}$ s$^{-1}$]",overlayBnd=False, \
-		tFreqBands=[],myFigs=None,bmnum = None,site = None,drawEdge = False,
-		tfreq = None, noise = None,rTime = None, radN = None,dist = None,
-		llcrnrlon=None,llcrnrlat=None,urcrnrlon=None,urcrnrlat=None,lon_0=None,lat_0=None,
-		merGrid = True,merColor = '0.75',continentBorder = '0.75',
-		waterColor = '#cce5ff',continentColor = 'w',backgColor='w',gridColor='k',\
-		filepath = None,myMap = None):
+		tFreqBands=[],myFigs=None,bmnum = None,drawEdge = False,continentBorder = '0.75',\
+		tfreq = None, noise = None,nave = 0, inttime = 0,rTime = None, radN = None,merGrid = True,\
+		merColor = '0.75',waterColor = '#cce5ff',continentColor = 'w',\
+		backgColor='w',gridColor='k',filepath = None,\
+		site = None,dist = None,myMap = None):
 
-    """A function to make a fan plot
+    """A function to make a geographical fan plot
     
     **Args**:
+    	* **myScan** (list): a list size of the radar beam number containing beam information
         * **rad** (list): a list of 3 letter radar codes, e.g. ['bks'], e.g. ['bks','wal','gbr']
         * **[param]** (str): the parameter to be plotted, valid inputs are 'velocity', 'power', 'width', 'elevation', 'phi0'.  default = 'velocity'
         * **[filtered]** (boolean): a flag indicating whether the data should be boxcar filtered.  default = False
@@ -64,7 +68,7 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
         * **[coords]** (str): the coordinate system to use, valid inputs are 'geo', 'mag'.  default = 'geo'
         * **[colors]** (str): the color map to use, valid inputs are 'lasse', 'aj'.  default = 'lasse'
         * **[gsct]** (boolean): a flag indicating whether to plot ground scatter as gray.  default = False
-        * **[fov]**  (boolean): a flag indicating whether to overplot the radar fields of view.  default = True
+        * **[fovs]**  (boolean): a flag indicating whether to overplot the radar fields of view.  default = True
         * **[edgeColors]** (str): edge colors of the polygons, default = 'face'
         * **[lowGray]** (boolean): a flag indicating whether to plot low velocities in gray.  default = False
         * **[fill]** (boolean): a flag indicating whether to plot filled or point RB cells.  default = True
@@ -74,21 +78,54 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
         * **[poesparam]** (str): the poes parameter to plot.  default = 'ted'.  available params can be found in :class:`gme.sat.poes.poesRec`
         * **[poesMin]** (float): the min value for the poes data color scale.  default = -3.
         * **[poesMax]**  (float): the max value for the poes data color scale.  default = 0.5
+        * **[maxbeams]** (int): maximum number of beams for a radar
+        * **[maxgates]** (int): maximum number of gates for a radar
         * **[poesLabel]** (str): the label for the poes color bar.  default = r"Total Log Energy Flux [ergs cm$^{-2}$ s$^{-1}$]"
         * **[overlayBnd]** (boolean): a flag indicating whether to plot an auroral boundary determined from fitting poes data.  default = False
         * **[tFreqBands]** (list): upper and lower bounds of frequency in kHz to be used.  Must be unset (or set to []) or have a pair for each radar, and for any band set to [] the default will be used.  default = [[8000,20000]], [[8000,20000],[8000,20000]], etc.
+        * **[myFigs]** (figure): Array of figures, one for each parameter
+        * **[bmnum]** (int): number of beam that you are currently at 
+        * **[drawEdge]** (boolean): a flag indicating if the edges of contents are drawn
+        * **[continentBorder]** (int): Color of the content border
+        * **[tfreq]** (int): The beam numbers param tfreq for title information
+        * **[noise]** (float): The beam numbers param noisesearch for title information
+        * **[nave]** (int): The number of averages for the displayed beam
+        * **[inttime]** (int): The integeration time in seconds for the displayed beam
+        * **[rTime]** (datetime): The beam number time for title information
+        * **[radN]** (str): Name of the radar like 'Adak East' for title information
+        * **[merGrid]** (boolean): Indicates if the map has a grid
+        * **[merColor]** (int): Color of the grid if it is drawn
+        * **[waterColor]** (str): Color string of the ocean water
+        * **[continentColor]** (char): Color char of the content
+        * **[backgColor]** (char): Color char of the background color
+        * **[gridColor]** (char): Color char of the background grid
+        * **[filepath]** (str): file path from current location to picture location
+        * ****** Pre -Caluculated information to reduce runtime ****** *
+        * **[site]** (site): site information of the radar
+        * **[dist]** (geoLoc): location information the width divided by 50
+        * **[myMap]** (myMap): Map object with latitude and longitude information
+        
     **Returns**:
-        * Nothing
+        * Array of matplotlib figures
 
     **Example**:
         ::
         
             import datetime as dt
-            pydarn.plotting.fan.plotFan(dt.datetime(2013,3,16,16,30),['fhe','fhw'],param='power',gsct=True)
-            pydarn.plotting.fan.plotFan(dt.datetime(2013,3,16,16,30),['fhe','fhw'],param='power',gsct=True,tFreqBands=[[10000,11000],[]])
+            import matplotlib.pyplot as plot
+            plotFan(myScan,['ade'],	fovs = fovs,
+            params=['velocity','power','width'],gsct=True, 
+			maxbeams = 16,maxgates=75,scales=[[-1000,1000],[0,30],[0,500]],
+			drawEdge = False,myFigs = 3*[plot.figure()],bmnum = 1,
+			site = site,tfreq = tfreq,noise = myBeam.prm.noisesearch,
+			rTime=myBeam.time,radN = 'Adak East',dist = dist,
+			merGrid = True, merColor = '0.75', continentBorder = '0.75',
+			waterColor = '#cce5ff', continentColor = '0.75',backgColor = 'w',
+			gridColor = 'k', filepath =filepath,myMap = myMap)
 
     Written by AJ 20121004
     Modified by Matt W. 20130717
+    Modified by Michelle S. 20160324 (updated to run in real time data)
     """
 
     
@@ -99,11 +136,6 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
     for r in rad:
         assert(isinstance(r,str) and len(r) == 3),'error, elements of rad list must be 3 letter strings'
     assert(coords == 'geo' or coords == 'mag'),"error, coords must be one of 'geo' or 'mag'"
-    #assert(param == 'velocity' or param == 'power' or param == 'width' or \
-    #   param == 'elevation' or param == 'phi0'), \
-    #    "error, allowable params are 'velocity','power','width','elevation','phi0'"
-    #assert(scale == [] or len(scale)==2), \
-    #'error, if present, scales must have 2 elements'
     assert(colors == 'lasse' or colors == 'aj'),"error, valid inputs for color are 'lasse' and 'aj'"
     
     #check freq band and set to default if needed
@@ -113,7 +145,7 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
 		param = params[i]
 		scale = scales[i]
 		myFig = myFigs[i]
-		myFig.clf()
+		myFig.clf(keep_observers=True)
 		tbands = []
 		for i in range(len(rad)):
 			if tFreqBands == [] or tFreqBands[i] == []: tbands.append([8000,20000])
@@ -138,14 +170,17 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
 		myBands = []
 		for i in range(len(rad)):
 			myBands.append(tbands[i])
-		
-		myMap.drawcoastlines(linewidth=0.5,color=continentBorder)
-		myMap.drawmapboundary(fill_color=waterColor)
-		myMap.fillcontinents(color=continentColor, lake_color=waterColor)
-		#now, loop through desired time interval
+
+		try:
+			myMap.drawcoastlines(linewidth=0.5,color=continentBorder)
+			myMap.drawmapboundary(fill_color=waterColor)
+			myMap.fillcontinents(color=continentColor, lake_color=waterColor)
+			myMap.drawcountries()
+		except:
+			myMap.drawcountries()
+
 		cols = []
 		ft = 'None'
-		#go though all files
 		pcoll = None
 		drawEdge = False
 		gridColor ='k'
@@ -155,12 +190,19 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
 		continentColor = 'w'
 		merColor = '0.75'
 		cTime = datetime.datetime.utcnow()
+		if param == 'power':
+			gsct = False
+		else:
+			gsct = True
 
-		overlayFov(myMap,site = site,fovColor=backgColor,\
-			lineColor=gridColor, dateTime=cTime, fovObj=fovs[0]) 
+
+		overlayFov(myMap, codes=rad, dateTime=cTime,\
+                                       fovObj=fovs[0])
 		intensities, pcoll = overlayFan(myScan,myMap,myFig,param,coords,\
 			gsct=gsct,site=site,fov=fovs[0], fill=fill,velscl=velscl,\
-			dist=dist,cmap=cmap,norm=norm,scale = scale)
+			dist=dist,cmap=cmap,norm=norm,scale = scale,maxbeams=maxbeams,
+			maxgates = maxgates)
+		
 		#if no data has been found pcoll will not have been set, and the following code will object                                   
 		if pcoll: 
 			cbar = myFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1,drawedges=drawEdge,norm=norm)
@@ -204,24 +246,21 @@ def plotFan(myScan,rad,params='velocity',filtered=False ,\
 					ti.set_fontsize(12)    
 		if(overlayBnd):
 			gme.sat.poes.overlayPoesBnd(myMap, myFig.gca(), cTime)
-			
-		xmin = 0.1
-		xmax = 0.86
-		
-		#myFig.text(xmin,.95,title,ha='left',weight=550)
-		#myFig.text((xmin+xmax)/2.,.95,str(rTime),weight=550,ha='center')
+	
+
 		if noise is None:
 			noise =0
+
 		plt.title(radN+'; Time: '+str(rTime),loc='center')
-		plt.xlabel('Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise))
-		#self.parent.geo['figure'][i].savefig("%sgeo_%s" % (self.parent.filepath[0],self.parent.geo['param'][i]))
-		#handle the outputs
+		plt.xlabel('Beam: '+str(bmnum)+'; Freq: '+str(tfreq)+'; Noise: '+"{0:.2f}".format(noise)+\
+			'; Avg: '+str(nave)+'; Int. Time: '+str(inttime))
 		myFig.savefig("%sgeo_%s" % (filepath,param),bbox_inches='tight')
     return myFigs
 
 def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
                                 fov=None,gs_flg=[],fill=True,velscl=1000.,dist=1000.,
-                                cmap=None,norm=None,alpha=1,scale = None):
+                                cmap=None,norm=None,alpha=1,scale = None,
+                                maxbeams = 16, maxgates = 75):
 
     """A function of overlay radar scan data on a map
 
@@ -253,12 +292,9 @@ def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
     
     if(site == None):
         site = RadarPos(myData[0].stid)
-    if(fov == None):
-        fov = radFov.fov(site=site,rsep=myData[0].prm.rsep,\
-        ngates=myData[0].prm.nrang+1,nbeams= site.maxbeam,coords=coords) 
+
     
     if(isinstance(myData,beamData)): myData = [myData]
-    
     gs_flg,lines = [],[]
     if fill: verts,intensities = [],[]
     else: verts,intensities = [[],[]],[[],[]]
@@ -269,19 +305,22 @@ def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
 			for k in range(0,len(myBeam.fit.slist)):
 				if myBeam.fit.slist[k] not in fov.gates: continue
 				r = myBeam.fit.slist[k]
+				
 				if fill:
-					x1,y1 = myMap(fov.lonFull[myBeam.bmnum,r],fov.latFull[myBeam.bmnum,r])
-					x2,y2 = myMap(fov.lonFull[myBeam.bmnum,r+1],fov.latFull[myBeam.bmnum,r+1])
-					x3,y3 = myMap(fov.lonFull[myBeam.bmnum+1,r+1],fov.latFull[myBeam.bmnum+1,r+1])
-					x4,y4 = myMap(fov.lonFull[myBeam.bmnum+1,r],fov.latFull[myBeam.bmnum+1,r])
-					#save the polygon vertices
-					verts.append(((x1,y1),(x2,y2),(x3,y3),(x4,y4),(x1,y1)))
-					#save the param to use as a color scale
-					if(param == 'velocity'): intensities.append(myBeam.fit.v[k])
-					elif(param == 'power'): intensities.append(myBeam.fit.p_l[k])
-					elif(param == 'width'): intensities.append(myBeam.fit.w_l[k])
-					elif(param == 'elevation' and myBeam.prm.xcf): intensities.append(myBeam.fit.elv[k])
-					elif(param == 'phi0' and myBeam.prm.xcf): intensities.append(myBeam.fit.phi0[k])
+					if myBeam.bmnum +1 < len(fov.lonFull):
+						x1,y1 = myMap(fov.lonFull[myBeam.bmnum,r],fov.latFull[myBeam.bmnum,r])
+						x2,y2 = myMap(fov.lonFull[myBeam.bmnum,r+1],fov.latFull[myBeam.bmnum,r+1])
+						x3,y3 = myMap(fov.lonFull[myBeam.bmnum+1,r+1],fov.latFull[myBeam.bmnum+1,r+1])
+						x4,y4 = myMap(fov.lonFull[myBeam.bmnum+1,r],fov.latFull[myBeam.bmnum+1,r])
+						#save the polygon vertices
+						verts.append(((x1,y1),(x2,y2),(x3,y3),(x4,y4),(x1,y1)))
+						#save the param to use as a color scale
+						if(param == 'velocity'): intensities.append(myBeam.fit.v[k])
+						elif(param == 'power'): intensities.append(myBeam.fit.p_l[k])
+						elif(param == 'width'): intensities.append(myBeam.fit.w_l[k])
+						elif(param == 'elevation' and myBeam.prm.xcf): intensities.append(myBeam.fit.elv[k])
+						elif(param == 'phi0' and myBeam.prm.xcf): intensities.append(myBeam.fit.phi0[k])
+						
 					
 				else:
 					x1,y1 = myMap(fov.lonCenter[myBeam.bmnum,r],fov.latCenter[myBeam.bmnum,r])
@@ -319,7 +358,7 @@ def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
                 myFig.gca().add_collection(x, autolim=True)
 
             pcoll = PolyCollection(numpy.array(verts)[inx],
-                edgecolors='none',linewidths=0,closed=False,zorder=4,
+                edgecolors='face',linewidths=0,closed=False,zorder=4,
                 alpha=alpha,cmap=cmap,norm=norm)
             #set color array to intensities
             pcoll.set_array(numpy.array(intensities)[inx])
@@ -354,4 +393,3 @@ def overlayFan(myData,myMap,myFig,param,coords='geo',gsct=0,site=None,\
             lcoll.set_array(numpy.array(intensities[0])[inx])
             myFig.gca().add_collection(lcoll)
 
-            return intensities,lcoll

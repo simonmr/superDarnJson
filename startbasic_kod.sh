@@ -18,8 +18,8 @@ else
     echo "$SERVICE is not running"
     pkill -9 -f pydmap_read_kod.py
     cd /var/www/radar/html/java/images/gui/
-    python2 pydmap_read_kod.py &
-    python2 basic_gui.py hosts=localhost ports=6044 maxbeam=16 nrangs=75 names="Kodiak D" beams=8 channels=d rad=kod filepath="kodd/"
+    python2.7 pydmap_read_kod.py &
+    python2.7 basic_gui.py hosts=localhost ports=6044 maxbeam=16 nrangs=75 names="Kodiak D" beams=8 channels=d rad=kod filepath="kodd/"
     
 fi
 

@@ -18,8 +18,8 @@ else
     echo "$SERVICE is not running"
     pkill -9 -f pydmap_read_adw.py
     cd /var/www/radar/html/java/images/gui/
-    python2 pydmap_read_adw.py &
-    python2 basic_gui.py hosts=localhost ports=6042 maxbeam=16 nrangs=75 names="Adak West" beams=8 rad=adw filepath="adw/"
+    python2.7 pydmap_read_adw.py &
+    python2.7 basic_gui.py hosts=localhost ports=6042 maxbeam=16 nrangs=75 names="Adak West" beams=8 rad=adw filepath="adw/"
     
 fi
 

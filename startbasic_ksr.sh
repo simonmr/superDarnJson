@@ -1,6 +1,6 @@
 #!/bin/sh
 SERVICE='basic_gui.py'
-RADAR='ade'
+RADAR='ksr'
 if ps ax | grep -v grep | grep $SERVICE | grep $RADAR > /dev/null
 then
     cd /var/www/radar/html/java/images/gui/errlog/
@@ -16,10 +16,10 @@ then
     fi
 else
     echo "$SERVICE is not running"
-    pkill -9 -f pydmap_read_ade.py
+    pkill -9 -f pydmap_read_ksr.py
     cd /var/www/radar/html/java/images/gui/
-    python2.7 pydmap_read_ade.py &
-    python2.7 basic_gui.py hosts=localhost ports=6040 maxbeam=16 nrangs=75 names="Adak East" beams=8 rad=ade filepath="ade/"
+    python2.7 pydmap_read_ksr.py &
+    python2.7 basic_gui.py hosts=localhost ports=6047 maxbeam=16 nrangs=75 names="King Salmon(NICT)" beams=8 rad=ksr filepath="ksr/"
     
 fi
 

@@ -18,8 +18,8 @@ else
     echo "$SERVICE is not running"
     pkill -9 -f pydmap_read_mcb.py
     cd /var/www/radar/html/java/images/gui/
-    python2 pydmap_read_mcb.py &
-    python2 basic_gui.py hosts=localhost ports=6046 maxbeam=16 nrangs=75 names="Mcmurdo B" beams=8 channels=b rad=mcm filepath="mcmb/"
+    python2.7 pydmap_read_mcb.py &
+    python2.7 basic_gui.py hosts=localhost ports=6046 maxbeam=16 nrangs=75 names="Mcmurdo B" beams=8 channels=b rad=mcm filepath="mcmb/"
     
 fi
 

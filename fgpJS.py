@@ -34,21 +34,22 @@
 
 
 import numpy
-from utils.plotUtils import genCmap
+from davitpy.utils.plotUtils import genCmap
 import logging
 from matplotlib.ticker import MultipleLocator, FormatStrFormatter
-from utils.timeUtils import *
-from pydarn.sdio import *
+from davitpy.utils.timeUtils import *
+from davitpy.pydarn.sdio import *
 import matplotlib.pyplot as plt
 
 def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
               scales=[],channel='a',coords='gate',colors='lasse',yrng=-1,gsct=False,lowGray=False, \
-              filtered=False, tFreqBands=[], myFile=None,figure=None,xtick_size=9,
+              filtered=False, tFreqBands=[], figure=None,xtick_size=9,
               ytick_size=9,xticks=None,axvlines=None,plotTerminator=False,
               tfreq = None, noise=None, rTime = None,radN = None):
   """create an rti plot for a secified radar and time period
 
   **Args**:
+  	* **myScan** (Beam): Set of beam information for specific radar
     * **rad** (str): the 3 letter radar code, e.g. 'bks'
     * **[bmnum] (int)**: The beam to plot.  default: 7
     * **[params]** (list): a list of the fit parameters to plot, allowable values are: ['velocity', 'power', 'width', 'elevation', 'phi0'].  default: ['velocity', 'power', 'width']
@@ -60,27 +61,35 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
     * **[gsct]** (boolean): a flag indicating whether to plot ground scatter as gray. default: False (ground scatter plotted normally)
     * **[lowGray]** (boolean): a flag indicating whether to plot low velocity scatter as gray. default: False (low velocity scatter plotted normally)
     * **[filtered]** (boolean): a flag indicating whether to boxcar filter the data.  default = False (no filter)
-    * **[custType]** (string): the type (fitacf, lmfit, fitex) of file indicated by fileName
     * **[tFreqBands]** (list): a list of the min/max values for the transmitter frequencies in kHz.  If omitted, the default band will be used.  If more than one band is specified, retfig will cause only the last one to be returned.  default: [[8000,20000]]
     * **[figure]** (matplotlib.figure) figure object to plot on.  If None, a figure object will be created for you.
-    * **[xtick_size]**: (int) fontsize of xtick labels
-    * **[ytick_size]**: (int) fontsize of ytick labels
-    * **[xticks]**: (list) datetime.datetime objects indicating the location of xticks
-    * **[axvlines]**: (list) datetime.datetime objects indicating the location vertical lines marking the plot
-    * **[plotTerminator]**: (boolean) Overlay the day/night terminator.
+    * **[xtick_size]** (int): fontsize of xtick labels
+    * **[ytick_size]** (int): fontsize of ytick labels
+    * **[xticks]** (list): datetime.datetime objects indicating the location of xticks
+    * **[axvlines]** (list): datetime.datetime objects indicating the location vertical lines marking the plot
+    * **[plotTerminator]** (boolean): Overlay the day/night terminator.
+    * **[tfreq]** (int): the beams freqency for the title 
+    * **[noise]** (float): the beams noise for the title
+    * **[rTime]** (datetime): the beam time for the title
+    * **[radN]** (str): Name of radar site for the title
   **Returns**:
-    * Possibly figure, depending on the **retfig** keyword
+    * Plotted figure
 
   **Example**:
     ::
     
       import datetime as dt
-      pydarn.plotting.rti.plotRti(dt.datetime(2013,3,16), 'bks', eTime=dt.datetime(2013,3,16,14,30), bmnum=12, fileType='fitacf', scales=[[-500,500],[],[]], coords='geo',colors='aj', filtered=True, show=True)
+      import matplotlib.pyplot as plot
+      plotFgpJson(myScan,'ade',params='velocity',gsct=True,
+			scales=[-1000,1000],bmnum = 12,	figure = plot['figure'],
+			tfreq = myBeam.prm.tfreq,noise = myBeam.prm.noisesearch,
+			rTime=myBeam.time,radN = 'Adak East')
 
     
   Written by AJ 20121002
   Modified by Matt W. 20130715
   Modified by Nathaniel F. 20131031 (added plotTerminator)
+  Modified by Michelle S. 20160324 (updated to create a real time plot and beam vs gate plot)
   """
     
 
@@ -198,8 +207,8 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
       if(pArr == []): continue
       
       rmax = max(nrang[fplot])
-      data=numpy.zeros((len(beam[fplot]),rmax))+100000
-      if gsct: gsdata=numpy.zeros((len(beam[fplot]),rmax))+100000
+      data=numpy.zeros((len(beam[fplot]),rmax))-150000
+      if gsct: gsdata=numpy.zeros((len(beam[fplot]),rmax))-150000
       x=numpy.zeros(len(beam[fplot]))
       tcnt = 0
       dt_list   = []
@@ -216,13 +225,14 @@ def plotFgpJson(myScan,rad,bmnum=7,params=['velocity','power','width'], \
           	  	  data[tcnt][slist[fplot][i][j]] = -100000.
         
         tcnt += 1
-      
+      tmpdata = numpy.ma.masked_where(data <= -150000, data)
       if(coords == 'gate'): y = numpy.linspace(0,rmax,rmax+1)
       elif(coords == 'rng'): y = numpy.linspace(frang[fplot][0],rmax*rsep[fplot][0],rmax+1)
       else: y = myFov.latFull[bmnum] 
       X, Y = numpy.meshgrid(x[:tcnt], y)
       cmap,norm,bounds = genCmap(params[p],scales[p],colors=colors,lowGray=lowGray)
-      pcoll = ax.pcolormesh(data[:][:].T, lw=0.01,edgecolors='w',alpha=1,lod=True,cmap=cmap,norm=norm)
+      cmap.set_bad('w',1.0)
+      pcoll = ax.pcolormesh(tmpdata[:][:].T, lw=0.01,edgecolors='w',alpha=1,cmap=cmap,norm=norm)
       cb = rtiFig.colorbar(pcoll,orientation='vertical',shrink=.65,fraction=.1)
       l = []
       #define the colorbar labels
@@ -328,14 +338,7 @@ def drawAxes(myFig,beam,rad,cpid,bmnum,nrang,frang,rsep,bottom,yrng=-1,\
   ax.xaxis.set_minor_locator(xMinor)
   ax.xaxis.set_major_locator(xMajor)
 
-  #for tick in ax.xaxis.get_major_ticks():
-  	  #tick.label.set_fontsize(xtick_size) 
-   
-    
-  #set ytick size
-  #for tick in ax.yaxis.get_major_ticks():
-    #tick.label.set_fontsize(ytick_size) 
-  #format y axis depending on coords
+
   if(coords == 'gate'): 
     ax.yaxis.set_label_text('Range gate',size=10)
     ax.yaxis.set_major_formatter(FormatStrFormatter('%d'))

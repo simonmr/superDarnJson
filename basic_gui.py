@@ -1,10 +1,10 @@
-from connection import serverCon,disconnect
-from pydarn.sdio import beamData, scanData
+﻿from connection import serverCon
+from davitpy.pydarn.sdio.radDataTypes import beamData, scanData
 import matplotlib.pyplot as plot
 from radarPos import RadarPos
 import sys, datetime, pytz
-from utils import plotUtils,mapObj
-from pydarn.radar import radFov
+from davitpy.utils.plotUtils import genCmap,mapObj,geoLoc
+from davitpy.pydarn.radar import radFov
 sys.path.append('~/davitpy')
 
 
@@ -26,11 +26,13 @@ class parseStart:
 		
 		self.i = 0
 		self.rad = self.rad[0]
+		
 		self.maxbm = self.maxbeam[0]
 		self.fan = None
 		self.geo = None
 		self.status = None
-		#fan data
+		
+		#Initializes fan data
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']
 		self.data['sc'] = [[-1000,1000],[0,30],[0,500]]
@@ -42,7 +44,7 @@ class parseStart:
 		self.fan = self.data
 	
 	
-		#time data
+		#Initializes time data
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']
 		self.data['sc'] = [[-1000,1000],[0,30],[0,500]]
@@ -52,7 +54,7 @@ class parseStart:
 		self.time = self.data
 		
 	
-		#geo data
+		#Initializes geo data
 		self.data = {}
 		self.data['param'] = ['velocity','power','width']
 		self.data['sc'] = [[-1000,1000],[0,30],[0,500]]
@@ -72,14 +74,15 @@ class parseStart:
 		serverCon(self)
 		
 '''
-Start the whole program
+Starts the whole program
 '''
 def run():
 
 	parseStart()
 
-
-#parses input arguments	
+'''
+Parses input arguments	
+'''
 def parseArgs(self):
 	
 	for argL in sys.argv:
@@ -111,14 +114,25 @@ def parseArgs(self):
 			self.rad = argL[indEq:].split(',')
 		elif 'filepath' in argL:
 			self.filepath = argL[indEq:].split(',')
+	if len(sys.argv)==1:
+		self.hosts=['localhost']
+		self.ports=['6047']
+		self.maxbeam = ['16']
+		self.nrangs=['75']
+		self.names=['King Salmon(NICT)']
+		self.beams=['8']
+		self.rad=['ksr']
+		self.filepath=['/var/www/html/java/ksr/']
+		
 
-
-#creates empty datasets used by all plots
-#datasets later updated by incoming data
+'''
+Creates empty datasets used by all plots
+datasets later updated by incoming data
+'''
 def createData(self):
 	self.myScan = scanData()
 	self.myBeamList = scanData()
-	for i in range(0, int(self.maxbeam[0])):
+	for i in range(0, int(self.maxbm)):
 		myBeam = beamData()
 		today = datetime.datetime.utcnow()
 		today = today.replace(tzinfo=pytz.utc)
@@ -130,50 +144,69 @@ def createData(self):
 		self.myScan.append(myBeam)
 	self.site = RadarPos(code = self.rad)
 	self.site.tval = datetime.datetime.utcnow()
-	self.lon_0,self.lat_0, self.fovs,self.dist,self.height,self.width = \
-	plotUtils.geoLoc(self.site,
-		int(self.nrangs[0]),self.site.rsep,
-		int(self.maxbeam[0]))
-	self.myMap = mapObj(coords='geo', projection='stere', lat_0=self.lat_0, lon_0=self.lon_0,
-												 width= self.width*1.2,height = self.height*1.2,grid =True,anchor = 'N',
-												 lineColor='0.75')
+	self.lon_0,self.lat_0, self.fovs,self.dist,self.width,self.height = \
+	geoLoc(self.site, int(self.nrangs[0]),self.site.rsep, int(self.maxbm))
+	self.myMap = mapObj(coords='geo',draw=True, projection='stere', lat_0=self.lat_0,\
+							lon_0=self.lon_0, width= self.width*1.2,
+							height = self.height*1.2,grid =True,anchor = 'N',
+							datetime=self.site.tval)
 
+'''
+loadData(self) used for time plot data only 
+reads in the data file to allow the time plot to 
+have 24 hours worth of data
+'''
 def loadData(self):
 	timeNow = datetime.datetime.utcnow()
-	dFilenm = 'data/'+`timeNow.month`+`timeNow.day`+`timeNow.year`+'_'+self.rad+self.channels[0]
-	self.day = timeNow.day
-	try:
-		with open(dFilenm,'r+') as f:
-			for line in f:
-				spiltline = line.split(';')
-				myBeam = beamData()
-				myBeam.stid = int(spiltline[0])
-				myBeam.bmnum = int(self.beams[0])
-				myBeam.time = createDt(spiltline[1])
-				myBeam.cp = int(spiltline[2])
-				myBeam.prm.nave = int(spiltline[3])
-				myBeam.prm.noisesky = float(spiltline[4])
-				myBeam.prm.rsep = int(spiltline[5])
-				myBeam.prm.nrang = int(spiltline[6])
-				myBeam.prm.frang = int(spiltline[7])
-				myBeam.prm.noisesearch = float(spiltline[8])
-				myBeam.prm.tfreq = float(spiltline[9])
-				myBeam.fit.slist = splitArray(spiltline[10])
-				myBeam.prm.ifmode = int(spiltline[11])
-				myBeam.fit.v = splitArray(spiltline[12])
-				myBeam.fit.p_l  = splitArray(spiltline[13])
-				myBeam.fit.w_l = splitArray(spiltline[14])
-				myBeam.fit.gflg = splitArray(spiltline[15])
-				self.myBeamList.append(myBeam)
-		f.close()
-	except:
-		print dFilenm,'file doesn"t exist'
-		
+	timeThen = timeNow - datetime.timedelta(days=1)
+	currentTime = timeThen
+	while currentTime <= timeNow:
+		dFilenm = 'data/'+`currentTime.month`+`currentTime.day`+`currentTime.year`+'_'+self.rad+self.channels[0]
+		try:
+			with open(dFilenm,'r+') as f:
+				for line in f:
+					spiltline = line.split(';')
+					beamTime = createDt(spiltline[1])
+					if beamTime > timeThen:
+						myBeam = beamData()
+						myBeam.stid = int(spiltline[0])
+						myBeam.bmnum = int(self.beams[0])
+						myBeam.time = beamTime
+						myBeam.cp = int(spiltline[2])
+						myBeam.prm.nave = int(spiltline[3])
+						myBeam.prm.noisesky = float(spiltline[4])
+						myBeam.prm.rsep = int(spiltline[5])
+						myBeam.prm.nrang = int(spiltline[6])
+						myBeam.prm.frang = int(spiltline[7])
+						myBeam.prm.noisesearch = float(spiltline[8])
+						myBeam.prm.tfreq = float(spiltline[9])
+						myBeam.fit.slist = splitArray(spiltline[10])
+						myBeam.prm.ifmode = int(spiltline[11])
+						myBeam.fit.v = splitArray(spiltline[12])
+						myBeam.fit.p_l  = splitArray(spiltline[13])
+						myBeam.fit.w_l = splitArray(spiltline[14])
+						myBeam.fit.gflg = splitArray(spiltline[15])
+						self.myBeamList.append(myBeam)
+			
+				f.close()
+		except:
+			print dFilenm,'file doesn"t exist'
+		currentTime += datetime.timedelta(days=1)
+
+'''
+splitArray(strArr) 
+creates an array object from a text form of an array
+'''
 def splitArray(strArr):
 	splitL = strArr.split(',')
 	numArr = []
 	for s in splitL:
-		if '[' in s:
+		if '[' in s and ']' in s:
+			if '\n' in s:
+				s = s[1:len(s)-2]
+			else:
+				s = s[1:len(s)-1]
+		elif '[' in s:
 			s = s[1:len(s)]
 		elif ']' in s:
 			if '\n' in s:
@@ -183,12 +216,20 @@ def splitArray(strArr):
 		numArr.append(float(s))
 	return numArr
 
+'''
+createDt(strDt)
+creates a datetime object from a text form of datetime
+'''
 def createDt(strDt):
 	splitL = strDt.split('(')
 	splitD = splitL[1].split(',')
 	mt = splitD[5]
-	dt = datetime.datetime(int(splitD[0]),int(splitD[1]),int(splitD[2]),\
-		int(splitD[3]),int(splitD[4]),int(mt[0:len(mt)-1]))
+	if len(splitD)>6:
+		dt = datetime.datetime(int(splitD[0]),int(splitD[1]),int(splitD[2]),\
+			int(splitD[3]),int(splitD[4]),int(splitD[5]))
+	else:
+		dt = datetime.datetime(int(splitD[0]),int(splitD[1]),int(splitD[2]),\
+			int(splitD[3]),int(splitD[4]),int(mt[0:len(mt)-1]))		
 	return dt
 		
 	

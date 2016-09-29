@@ -18,8 +18,8 @@ else
     echo "$SERVICE is not running"
     pkill -9 -f pydmap_read_sps.py
     cd /var/www/radar/html/java/images/gui/
-    nice -19 python2 pydmap_read_sps.py &
-    nice -19 python2 basic_gui.py hosts=localhost ports=6045 maxbeam=16 nrangs=75 names="South Pole" beams=8 rad=sps filepath="sps/"
+    nice -19 python2.7 pydmap_read_sps.py &
+    nice -19 python2.7 basic_gui.py hosts=localhost ports=6045 maxbeam=16 nrangs=75 names="South Pole" beams=8 rad=sps filepath="sps/"
     
 fi
 

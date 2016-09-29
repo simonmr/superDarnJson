@@ -1,4 +1,4 @@
-﻿from pydarn.sdio import beamData, scanData
+﻿from davitpy.pydarn.sdio.radDataTypes import beamData, scanData
 import logging
 from twisted.internet import reactor, protocol
 from twisted.internet.protocol import ClientFactory
@@ -11,18 +11,19 @@ from fgpJS import plotFgpJson
 import matplotlib.pyplot as plot
 import sys,datetime,pytz
 sys.path.append('~/davitpy')
-from utils import plotUtils,mapObj
+from davitpy.utils.plotUtils import genCmap,mapObj,geoLoc
 import time
-from pydarn.proc.music import getDataSet
-
+from davitpy.pydarn.proc.music import getDataSet
+from davitpy import utils
+import logging.config
 '''
-ProcessData(self)
-clears figure, calls graphing method, saves figure
-
+A thread that plots and saves the geographic fan plot
+and beam vs gates plot
 '''
-
 class geoThread(Thread):
-	
+	'''
+	Initialization of global variables
+	'''
 	def __init__(self, parent,data,timeQue):
 		super(geoThread, self).__init__()
 		self.parent = parent
@@ -30,11 +31,21 @@ class geoThread(Thread):
 		self.tq = timeQue
 		self.oldCpid = -9999999999
 		self.maxgates = int(self.parent.nrangs[0])
-		
 		self.stoprequest = Event()
 	
+	'''
+	Checks if queue is empty and uploads beam information
+	as long as stoprequest is not set.
+	Once new data is loaded and replaced into the radar beam list
+	the geographic data and beam number vs gate plots are called and saved.
+	
+	If the gate size is different than what is sent in the map of the 
+	radar is updated to show all gates
+	
+	The map will also be updated if the maximum beam is greater then the 
+	initial parameters 
+	'''	
 	def run(self):
-		
 		while not self.data.empty():
 			myScan = self.data.get(True, 0.1)
 			for mb in myScan:
@@ -56,7 +67,6 @@ class geoThread(Thread):
 				for pr in self.parent.fan['param']:
 					silentRemove(self,"fan_%s.png" % (pr))
 					silentRemove(self,"geo_%s.png" % (pr))
-				silentRemove(self,'time.png')
 				self.stoprequest.set()
 				break
 			while not self.data.empty():
@@ -65,42 +75,42 @@ class geoThread(Thread):
 				if myBeam.cp != self.oldCpid:
 					self.oldCpid = myBeam.cp
 					self.parent.maxbm = self.parent.maxbeam[0]
+				#updates if maxgates is changing
 				if myBeam.prm.nrang != self.maxgates:
-					print 'Changing Gates'
+					logging.info('Changing Gates')
 					self.maxgates = myBeam.prm.nrang
 					self.parent.lon_0,self.parent.lat_0, self.parent.fovs,\
-					self.parent.dist, self.parent.height,self.parent.width = plotUtils.geoLoc(self.parent.site,\
-						self.maxgates,self.parent.site.rsep,\
-						int(self.parent.maxbm))
+					self.parent.dist, self.parent.height,self.parent.width = geoLoc(self.parent.site,\
+						self.maxgates,myBeam.prm.rsep,int(self.parent.maxbm))
 					self.parent.myMap = mapObj(coords='geo', projection='stere',\
 						lat_0=self.parent.lat_0, lon_0=self.parent.lon_0,\
 						width= self.parent.width*1.3,height = self.parent.height*1.3,\
-						grid =True,lineColor='0.75')
-				if myBeam.bmnum >= len(myScan):
+						grid =True)
+				#updates myScan size if the beam number is greater then the current myScan size
+				elif myBeam.bmnum >= len(myScan):
 					bmnum = len(myScan)
-					while bmnum > len(myScan):
+					while myBeam.bmnum > len(myScan):
 						time.sleep(0.1)
 						tmp_myBeam = beamData()
 						tmp_myBeam.bmnum = bmnum
 						tmp_myBeam.time = timeNow.replace(tzinfo=None)
 						myScan.append(tmp_myBeam)
-						print tmp_myBeam
 						bmnum += 1
 					myScan.append(myBeam)
+					logging.info('Changing Beam number %s'%(myBeam))
 					self.parent.maxbm = myBeam.bmnum+1
 					self.parent.lon_0,self.parent.lat_0, self.parent.fovs,\
-					self.parent.dist, self.parent.height,self.parent.width = plotUtils.geoLoc(self.parent.site,\
-						self.maxgates,self.parent.site.rsep,\
+					self.parent.dist, self.parent.height,self.parent.width = geoLoc(self.parent.site,\
+						self.maxgates,myBeam.prm.rsep,\
 						int(self.parent.maxbm))
 					self.parent.myMap = mapObj(coords='geo', projection='stere',\
 						lat_0=self.parent.lat_0, lon_0=self.parent.lon_0,\
 						width= self.parent.width*1.3,height = self.parent.height*1.3,\
-						anchor = 'N',grid =True,lineColor='0.75')
+						anchor = 'N',grid =True,draw=True)
 				else:
 					myScan.pop(myBeam.bmnum)
 					myScan.insert(myBeam.bmnum,myBeam)
-			
-		
+			#Plot and save geographic figure for each parameter
 			try:
 				self.parent.geo['figure'] = plotFan(myScan,[self.parent.rad],
 					fovs = self.parent.fovs,
@@ -115,11 +125,11 @@ class geoThread(Thread):
 					site = self.parent.site,
 					tfreq = myBeam.prm.tfreq,
 					noise = myBeam.prm.noisesearch,
+					nave = myBeam.prm.nave,
+					inttime = myBeam.prm.inttsc,
 					rTime=myBeam.time,
 					radN = self.parent.names[0],
 					dist = self.parent.dist,
-					lon_0 = self.parent.lon_0,
-					lat_0 = self.parent.lat_0,
 					merGrid = self.parent.geo['merGrid'],
 					merColor = self.parent.geo['merColor'],
 					continentBorder = self.parent.geo['continentBorder'],
@@ -132,9 +142,15 @@ class geoThread(Thread):
 			except:
 				logging.error('geographic plot missing info')
 				logging.error('Geo Figure: %s'%(sys.exc_info()[0]))
-
+				
+			
+			#Plot and save beam number vs gates figure for each parameter
 			for i in range(len(self.parent.fan['figure'])):
 				time.sleep(1)
+				if self.parent.fan['param'][i] == 'velocity':
+					self.parent.fan['gsct'] = True
+				else:
+					self.parent.fan['gsct'] = False
 				try:
 					self.parent.fan['figure'][i].clf()
 					self.parent.fan['figure'][i]=plotFgpJson(myScan,self.parent.rad,
@@ -151,28 +167,42 @@ class geoThread(Thread):
 				except:
 					logging.error('fan plot missing info')
 					logging.error('Fan Figure: %s'%(sys.exc_info()[0]))
-
+					
+	
+	'''
+	Stops geoThread
+	'''
 	def join(self, timeout=None):
 		self.stoprequest.set()
 		logging.info("Closing geoThread")
 		super(geoThread, self).join(timeout)
 
+'''
+A thread that plots and saves the time plot
+and writes the beam information into a data file
+'''
 class timeThread(Thread):
-	
+	'''
+	Initialization of global variables
+	'''
 	def __init__(self, parent, data):
 		super(timeThread, self).__init__()
 		self.parent = parent
 		self.data = data
 		self.stoprequest = Event()
-		self.oldDate = self.parent.day
-	
+	'''
+	Checks if queue is empty and uploads beam information
+	as long as stoprequest is not set.
+	Once new data is loaded and replaced into the my beam list
+	the time plot is called and saved. 
+	'''		
 	def run(self):
 		myBeamList = scanData()
 		while not self.data.empty():
 			myBeamList = self.data.get(True, 0.01)
 		while not self.stoprequest.isSet():
 			time.sleep(20)
-
+			timeNow = datetime.datetime.utcnow()
 			while not self.data.empty():
 				tmpB = self.data.get(True, 0.01)
 				if tmpB == 0:
@@ -182,15 +212,13 @@ class timeThread(Thread):
 						logging.error('Reactor already stopped')
 					logging.error('Time thread stopped')
 					self.stoprequest.set()
+					
 					sys.exit()
 					break
 				else:
 					myBeam = beamData()
 					myBeam = tmpB
-				timeNow = datetime.datetime.utcnow()
-				if self.oldDate != timeNow.day:
-					myBeamList = scanData()
-					self.oldDate = timeNow.day
+				#writes to a file so the beam data can be later uploaded
 				dFilenm = 'data/'+`timeNow.month`+`timeNow.day`+`timeNow.year`+'_'+self.parent.rad+self.parent.channels[0]
 				
 				with open(dFilenm,'a+') as f:
@@ -202,30 +230,37 @@ class timeThread(Thread):
 					f.write(fLine)
 				f.close()
 				myBeamList.append(myBeam)
-				if len(myBeamList)>2:
-					try:
-						self.parent.time['figure'].clf()
-						self.parent.time['figure']=plotRti(myBeamList,
-								self.parent.rad,
-								params=self.parent.time['param'],
-								scales=self.parent.time['sc'],
-								gsct=self.parent.time['gsct'],
-								bmnum = int(self.parent.beams[0]),
-								figure = self.parent.time['figure'],
-								rTime = myBeam.time,
-								title = self.parent.names[0],
-								myFov = self.parent.fovs)
-						self.parent.time['figure'].savefig("%stime" % (self.parent.filepath[0]))
-					except:
-						logging.error('time plot missing info')
-						logging.error('Time Figure: %s' %(sys.exc_info()[0]))
+			if len(myBeamList)>2:
+				try:
+					self.parent.time['figure'].clf()
+					self.parent.time['figure']=plotRti(myBeamList,
+							self.parent.rad,
+							params=self.parent.time['param'],
+							scales=self.parent.time['sc'],
+							gsct=self.parent.time['gsct'],
+							bmnum = int(self.parent.beams[0]),
+							figure = self.parent.time['figure'],
+							rTime = timeNow,
+							title = self.parent.names[0],
+							myFov = self.parent.fovs)
+					self.parent.time['figure'].savefig("%stime" % (self.parent.filepath[0]))
+				except:
+					logging.error('time plot missing info')
+					logging.error('Time Figure: %s' %(sys.exc_info()[0]))
+			else:
+				lowData(self,'time.png')
 	def join(self, timeout=None):
 		self.stoprequest.set()
 		logging.info("Closing timeThread")
 		super(timeThread, self).join(timeout)
 					
-
-
+'''
+ProcessMsg(self)
+loads in the json data and load it correctly into
+the specific beam with the fit and param data
+Then upload the data in the proper que so that
+the correct thread runs and updates
+'''
 def processMsg(self):
     try:
         dic = json.loads(self.data)
@@ -261,7 +296,10 @@ def processMsg(self):
     self.parent.i = self.parent.i+1
     self.endP = True
 
-
+'''
+incommingData
+parses incomming text into the fit and param data section
+'''
 def incommingData(self,data):	
     #As soon as any data is received, write it back.
     time.sleep(0.5)
@@ -286,7 +324,7 @@ def incommingData(self,data):
                 indF = self.find(data,'}]')
             self.parseS = False
         if indF < indS:
-            indF = -1;
+            indF = -1
         if indS != -1 and indF != -1:
             if self.parseS:
                 if i == start_count:
@@ -331,7 +369,13 @@ def incommingData(self,data):
             self.data2 = None
         i +=1
 
+'''    
+Built in Twisted method overwritten:
+Initializes values recieves data calls the correct method
+'''
+
 class EchoClient(protocol.Protocol):
+	#initializes needed values and starts connection to server
     def connectionMade(self):
         self.parent = self.factory.parent
         self.gque = self.factory.gque
@@ -348,10 +392,7 @@ class EchoClient(protocol.Protocol):
         logging.info('Connection Open')
         self.transport.registerProducer(self.transport, streaming=True)
 
-    '''    
-    Built in Twisted method overwritten:
-    Recieves data parses apart each packet and updates Scan data
-    '''
+	#Recieves data and calls incommingData method
     def dataReceived(self, data):
     	time.sleep(0.5)
         incommingData(self,data)
@@ -360,18 +401,13 @@ class EchoClient(protocol.Protocol):
 
 '''
 Handles lost server connections
-Will exponentially try to reconnect to the server
-Also removes and replaces saved figure with a lost connection identifier
-creates new data array for everything except time data
-
+Stops the reactor, threads and changings image to show loss of connection
 '''
 class EchoFactory(ClientFactory):
     protocol = EchoClient
     def __init__(self,parent):
         self.parent = parent
 
-	def startedConnecting(self, connector):
-		self.resetDelay()
 
     def clientConnectionFailed(self, connector, reason):
         logging.debug("Connection failed - goodbye!")
@@ -385,7 +421,6 @@ class EchoFactory(ClientFactory):
         for pr in self.parent.fan['param']:
             silentRemove(self,"fan_%s.png" % (pr))
             silentRemove(self,"geo_%s.png" % (pr))
-        silentRemove(self,'time.png')
 
 
     def clientConnectionLost(self, connector, reason):
@@ -393,24 +428,33 @@ class EchoFactory(ClientFactory):
         logging.debug('Closed Connection')
         reactor.stop()
         try:
-            self.parent.gt.join()
-            self.parent.tt.join()
+        	self.parent.gt.join()
+        	self.parent.tt.join()
         except:
             logging.debug("Threads haven't started")
         for pr in self.parent.fan['param']:
             silentRemove(self,"fan_%s.png" % (pr))
             silentRemove(self,"geo_%s.png" % (pr))
-        silentRemove(self,'time.png')
 
 
-
-#connects server
-
+'''
+Initializes queues and threads and sets up to wait for a server to connect
+'''
 def serverCon(self):
 	t_date = datetime.date.today()
-	logging.basicConfig(filename="errlog/err_%s%s_%s"\
+	logger = logging.getLogger()
+	old_log = logger.handlers[0]
+	logger.removeHandler(old_log)
+	#root_logger.disabled = True
+	#new_logger = logging.getLogger()
+	#new_logger.disabled = False
+	rl = logging.basicConfig(filename="errlog/err_%s%s_%s"\
 		% (self.rad,self.channels[0],t_date.strftime('%Y%m%d')), level=logging.DEBUG, \
 		format='%(asctime)s %(message)s')
+	lh = logging.StreamHandler(rl)
+	logger.addHandler(lh)
+	logger.debug('Starting everything')
+	print 'Writting to file'
 	f = EchoFactory(self)
 	f.parent = self
 	f.gque = Queue()
@@ -421,17 +465,15 @@ def serverCon(self):
 	f.gt = geoThread(self,f.gque,f.tque)
 	f.gt.start()
 	f.tt.start()
+	f.logger = logger
 	reactor.connectTCP(self.hosts[0], int(self.ports[0]), f)
 	reactor.run(installSignalHandlers=0)
 
-#disconnects from the server currently never called
-def disconnect(self):
-    logging.info('Closed Connection')
-    parent.i=1
-    reactor.stop()
 
-
-#Clears figure and replaces with text indicating lost connection
+'''
+Clears figure and replaces with text indicating lost connection for
+geographic and beam and gates plots
+'''
 def silentRemove(self,filename):
 	for fanFig in self.parent.fan['figure']:
 		fanFig.clf()
@@ -439,4 +481,12 @@ def silentRemove(self,filename):
 			size='x-large',style='oblique',ha='center',va='center')
 		fanFig.savefig("%s%s" % (self.parent.filepath[0],filename))
 
-
+'''
+Clears figure and replaces with text indicating low data amounts only for 
+time plots
+'''
+def lowData(self,filename):
+	self.parent.time['figure'].clf()
+	self.parent.time['figure'].text(0.5,0.5,'No Data',backgroundcolor='r',
+		size='x-large',style='oblique',ha='center',va='center')
+	self.parent.time['figure'].savefig("%s%s" % (self.parent.filepath[0],filename))
